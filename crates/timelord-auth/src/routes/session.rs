@@ -131,14 +131,8 @@ pub async fn switch_org(
         .encode_access(claims.sub, body.org_id, &role.to_string())?;
     let expires_at = Utc::now() + chrono::Duration::seconds(state.jwt.access_ttl_secs);
 
-    // Keep token_hash aligned so logout finds the session after org switch
-    let current_hash = jwt::hash_token(auth.token());
-    let new_token_hash = jwt::hash_token(&new_token);
-    if let Some(session) = session_repo::find_by_token_hash(&state.pool, &current_hash).await? {
-        session_repo::update_token_hash(&state.pool, session.id, &new_token_hash).await?;
-    }
-
-    // Persist last active org
+    // Persist last active org first — if this fails, the client keeps the old
+    // token whose hash still matches the DB row, so logout stays consistent.
     user_repo::update_last_active_org(&state.pool, claims.sub, body.org_id).await?;
 
     insert_audit(
@@ -148,6 +142,23 @@ pub async fn switch_org(
             .meta(serde_json::json!({ "from_org": claims.org, "to_org": body.org_id })),
     )
     .await;
+
+    // Update token_hash last — if this fails the client gets an error and keeps
+    // the old token, which still matches the old hash in DB. If it succeeds we
+    // are about to return the new token, so the hash stays consistent.
+    let current_hash = jwt::hash_token(auth.token());
+    let new_token_hash = jwt::hash_token(&new_token);
+    match session_repo::find_by_token_hash(&state.pool, &current_hash).await? {
+        Some(session) => {
+            session_repo::update_token_hash(&state.pool, session.id, &new_token_hash).await?;
+        }
+        None => {
+            tracing::warn!(
+                user_id = %claims.sub,
+                "switch_org: no session found for current bearer token hash"
+            );
+        }
+    }
 
     Ok(Json(serde_json::json!({
         "access_token": new_token,
