@@ -50,7 +50,20 @@ pub async fn find_by_refresh_hash(
     Ok(session)
 }
 
-#[allow(dead_code)]
+pub async fn find_by_token_hash(
+    pool: &PgPool,
+    token_hash: &str,
+) -> Result<Option<Session>, AppError> {
+    let session = sqlx::query_as!(
+        Session,
+        "SELECT * FROM sessions WHERE token_hash = $1 AND revoked_at IS NULL",
+        token_hash
+    )
+    .fetch_optional(pool)
+    .await?;
+    Ok(session)
+}
+
 pub async fn revoke(pool: &PgPool, session_id: Uuid) -> Result<(), AppError> {
     sqlx::query!(
         "UPDATE sessions SET revoked_at = now() WHERE id = $1",

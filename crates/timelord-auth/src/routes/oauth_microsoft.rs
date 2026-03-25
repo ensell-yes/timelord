@@ -119,8 +119,12 @@ pub async fn callback(
     )
     .await?;
 
+    let role = org_repo::get_member_role(&state.pool, org_id, user.id)
+        .await?
+        .map(|r| r.to_string())
+        .unwrap_or_else(|| "member".to_string());
     let (_session, tokens) =
-        session_svc::create_session(&state.pool, &state.jwt, user.id, org_id, "member", None)
+        session_svc::create_session(&state.pool, &state.jwt, user.id, org_id, &role, None)
             .await?;
 
     insert_audit(

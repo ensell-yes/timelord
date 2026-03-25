@@ -11,7 +11,7 @@ brew install highs              # HiGHS solver (zero-dep alternative to coin_cbc
 cp .env.example .env
 # Edit .env with your OAuth credentials
 
-docker compose up -d            # PostgreSQL :5432, Redis :6379, NATS :4222
+docker compose up -d            # PostgreSQL :5433, Redis :6379, NATS :4222
 
 # Build all crates
 cargo build --workspace
@@ -104,7 +104,7 @@ After changing any `sqlx::query!()` macro, regenerate:
 
 ```bash
 docker compose up -d postgres
-DATABASE_URL=postgres://timelord:timelord_dev@localhost:5432/timelord cargo sqlx prepare --workspace
+DATABASE_URL=postgres://timelord:timelord_dev@localhost:5433/timelord cargo sqlx prepare --workspace
 git add .sqlx/
 ```
 

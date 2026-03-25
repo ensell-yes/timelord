@@ -79,15 +79,12 @@ impl JwtService {
     }
 }
 
-/// Opaque refresh token stored as SHA-256 hash in DB.
+/// Opaque token stored as SHA-256 hash in DB.
 pub fn hash_token(token: &str) -> String {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    // Use SHA-256 in production; this uses a simple hash for the stub
-    // TODO: replace with sha2::Sha256
-    let mut hasher = DefaultHasher::new();
-    token.hash(&mut hasher);
-    format!("{:016x}", hasher.finish())
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(token.as_bytes());
+    hex::encode(hasher.finalize())
 }
 
 /// Generate a cryptographically random refresh token.

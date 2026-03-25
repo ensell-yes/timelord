@@ -9,8 +9,8 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::{
-    repo::{org_repo, user_repo},
-    services::{session as session_svc, AppState},
+    repo::{org_repo, session_repo, user_repo},
+    services::{jwt, session as session_svc, AppState},
 };
 use timelord_common::{
     audit::{insert_audit, AuditEntry},
@@ -50,8 +50,13 @@ pub async fn logout(
     // Calculate remaining TTL for jti denylist
     let remaining = claims.exp - Utc::now().timestamp();
 
-    // We don't have the session_id in the JWT — look it up by user
-    // For now, add jti to denylist (primary revocation mechanism)
+    // Revoke session in DB
+    let token_hash = jwt::hash_token(auth.token());
+    if let Some(session) = session_repo::find_by_token_hash(&state.pool, &token_hash).await? {
+        session_repo::revoke(&state.pool, session.id).await?;
+    }
+
+    // Add jti to Redis denylist so gateway rejects the token immediately
     let mut redis = state.redis.clone();
     if remaining > 0 {
         use redis::AsyncCommands;

@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::{
     models::session::{Session, TokenPair},
-    repo::{session_repo, user_repo},
+    repo::{org_repo, session_repo, user_repo},
     services::jwt::{self, JwtService},
 };
 use timelord_common::error::AppError;
@@ -66,7 +66,11 @@ pub async fn refresh_session(
         .ok_or(AppError::Unauthorized)?;
     let org_id = user.last_active_org_id.unwrap_or(session.org_id);
 
-    let access_token = jwt_svc.encode_access(session.user_id, org_id, "member")?;
+    let role = org_repo::get_member_role(pool, org_id, session.user_id)
+        .await?
+        .map(|r| r.to_string())
+        .unwrap_or_else(|| "member".to_string());
+    let access_token = jwt_svc.encode_access(session.user_id, org_id, &role)?;
     let now = Utc::now();
     let expires_at = now + Duration::seconds(jwt_svc.access_ttl_secs);
 

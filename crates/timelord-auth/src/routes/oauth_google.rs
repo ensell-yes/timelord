@@ -126,10 +126,13 @@ pub async fn callback(
     )
     .await?;
 
-    // Create JWT session
-    let role = "member"; // will be updated if owner
+    // Create JWT session with actual role from org_members
+    let role = org_repo::get_member_role(&state.pool, org_id, user.id)
+        .await?
+        .map(|r| r.to_string())
+        .unwrap_or_else(|| "member".to_string());
     let (_session, tokens) =
-        session_svc::create_session(&state.pool, &state.jwt, user.id, org_id, role, None).await?;
+        session_svc::create_session(&state.pool, &state.jwt, user.id, org_id, &role, None).await?;
 
     insert_audit(
         &state.pool,
