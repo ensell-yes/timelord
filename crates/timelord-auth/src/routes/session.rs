@@ -131,6 +131,13 @@ pub async fn switch_org(
         .encode_access(claims.sub, body.org_id, &role.to_string())?;
     let expires_at = Utc::now() + chrono::Duration::seconds(state.jwt.access_ttl_secs);
 
+    // Keep token_hash aligned so logout finds the session after org switch
+    let current_hash = jwt::hash_token(auth.token());
+    let new_token_hash = jwt::hash_token(&new_token);
+    if let Some(session) = session_repo::find_by_token_hash(&state.pool, &current_hash).await? {
+        session_repo::update_token_hash(&state.pool, session.id, &new_token_hash).await?;
+    }
+
     // Persist last active org
     user_repo::update_last_active_org(&state.pool, claims.sub, body.org_id).await?;
 
