@@ -68,9 +68,14 @@ pub async fn refresh_session(
 
     let role = org_repo::get_member_role(pool, org_id, session.user_id)
         .await?
-        .map(|r| r.to_string())
-        .unwrap_or_else(|| "member".to_string());
+        .ok_or(AppError::Unauthorized)?
+        .to_string();
     let access_token = jwt_svc.encode_access(session.user_id, org_id, &role)?;
+
+    // Keep token_hash current so logout can find this session after refresh
+    let new_token_hash = jwt::hash_token(&access_token);
+    session_repo::update_token_hash(pool, session.id, &new_token_hash).await?;
+
     let now = Utc::now();
     let expires_at = now + Duration::seconds(jwt_svc.access_ttl_secs);
 

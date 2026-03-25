@@ -64,6 +64,21 @@ pub async fn find_by_token_hash(
     Ok(session)
 }
 
+pub async fn update_token_hash(
+    pool: &PgPool,
+    session_id: Uuid,
+    token_hash: &str,
+) -> Result<(), AppError> {
+    sqlx::query!(
+        "UPDATE sessions SET token_hash = $2 WHERE id = $1",
+        session_id,
+        token_hash
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
 pub async fn revoke(pool: &PgPool, session_id: Uuid) -> Result<(), AppError> {
     sqlx::query!(
         "UPDATE sessions SET revoked_at = now() WHERE id = $1",
