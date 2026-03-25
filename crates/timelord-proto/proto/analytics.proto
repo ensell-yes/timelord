@@ -1,0 +1,16 @@
+syntax = "proto3";
+package timelord.analytics;
+
+// Analytics service — Phase 4. Stub only.
+service AnalyticsService {
+  rpc GetCalendarHealth(GetCalendarHealthRequest) returns (GetCalendarHealthResponse);
+}
+
+message GetCalendarHealthRequest {
+  string org_id = 1;
+  string user_id = 2;
+}
+
+message GetCalendarHealthResponse {
+  float health_score = 1;
+}

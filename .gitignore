@@ -1,0 +1,8 @@
+/target
+.env
+.env.local
+*.env
+**/*.rs.bk
+# .sqlx/ is checked in for SQLX_OFFLINE=true CI builds
+sqlx-data.json
+# Cargo.lock is committed for binary workspaces (reproducible builds)

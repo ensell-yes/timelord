@@ -1,0 +1,247 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO events\n            (org_id, calendar_id, title, description, location,\n             start_at, end_at, all_day, timezone, visibility,\n             attendees, recurrence_rule, is_movable)\n        VALUES\n            ($1, $2, $3, $4, $5,\n             $6, $7, $8, $9, $10,\n             $11, $12, $13)\n        RETURNING\n            id, org_id, calendar_id, provider_event_id, provider_etag,\n            title, description, location, conference_data,\n            start_at, end_at, all_day, timezone,\n            status AS \"status: EventStatus\",\n            visibility AS \"visibility: EventVisibility\",\n            is_organizer, organizer_email,\n            self_rsvp_status AS \"self_rsvp_status: RsvpStatus\",\n            attendees, recurrence_rule, recurring_event_id,\n            is_recurring_instance, reminders, extended_properties,\n            is_movable, is_heads_down, provider_synced_at,\n            created_at, updated_at\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "org_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "calendar_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "provider_event_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "provider_etag",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "title",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "location",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "conference_data",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 9,
+        "name": "start_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 10,
+        "name": "end_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "all_day",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 12,
+        "name": "timezone",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
+        "name": "status: EventStatus",
+        "type_info": {
+          "Custom": {
+            "name": "event_status",
+            "kind": {
+              "Enum": [
+                "confirmed",
+                "tentative",
+                "cancelled"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "visibility: EventVisibility",
+        "type_info": {
+          "Custom": {
+            "name": "event_visibility",
+            "kind": {
+              "Enum": [
+                "public",
+                "private",
+                "confidential"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "is_organizer",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 16,
+        "name": "organizer_email",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 17,
+        "name": "self_rsvp_status: RsvpStatus",
+        "type_info": {
+          "Custom": {
+            "name": "rsvp_status",
+            "kind": {
+              "Enum": [
+                "accepted",
+                "declined",
+                "tentative",
+                "needs_action"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "attendees",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 19,
+        "name": "recurrence_rule",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 20,
+        "name": "recurring_event_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 21,
+        "name": "is_recurring_instance",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 22,
+        "name": "reminders",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 23,
+        "name": "extended_properties",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 24,
+        "name": "is_movable",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 25,
+        "name": "is_heads_down",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 26,
+        "name": "provider_synced_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 27,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 28,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Timestamptz",
+        "Bool",
+        "Text",
+        {
+          "Custom": {
+            "name": "event_visibility",
+            "kind": {
+              "Enum": [
+                "public",
+                "private",
+                "confidential"
+              ]
+            }
+          }
+        },
+        "Jsonb",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "f3296ff90b7a18821ff1edbb641e52035bdfd81bcd3882b83e37379b2f2ccc2f"
+}

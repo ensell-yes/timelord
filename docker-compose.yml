@@ -1,0 +1,146 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: timelord
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-timelord_dev}
+      POSTGRES_DB: timelord
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U timelord"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  nats:
+    image: nats:2-alpine
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    command: "--jetstream --store_dir /data"
+    volumes:
+      - natsdata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8222/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  auth:
+    build:
+      context: .
+      dockerfile: crates/timelord-auth/Dockerfile
+    ports:
+      - "3001:3001"
+      - "50051:50051"
+    environment:
+      RUST_LOG: ${RUST_LOG:-info,timelord=debug}
+      DATABASE_URL: postgres://timelord:${POSTGRES_PASSWORD:-timelord_dev}@postgres:5432/timelord
+      REDIS_URL: redis://redis:6379
+      NATS_URL: nats://nats:4222
+      AUTH_HTTP_PORT: "3001"
+      AUTH_GRPC_PORT: "50051"
+      JWT_PRIVATE_KEY_PEM: ${JWT_PRIVATE_KEY_PEM}
+      JWT_PUBLIC_KEY_PEM: ${JWT_PUBLIC_KEY_PEM}
+      JWT_KEY_ID: ${JWT_KEY_ID:-key-1}
+      JWT_EXPIRY_SECONDS: ${JWT_EXPIRY_SECONDS:-900}
+      REFRESH_EXPIRY_SECONDS: ${REFRESH_EXPIRY_SECONDS:-604800}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:8080/auth/google/callback}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET}
+      MICROSOFT_REDIRECT_URI: ${MICROSOFT_REDIRECT_URI:-http://localhost:8080/auth/microsoft/callback}
+      MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-common}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3001/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  calendar:
+    build:
+      context: .
+      dockerfile: crates/timelord-calendar/Dockerfile
+    ports:
+      - "3002:3002"
+      - "50052:50052"
+    environment:
+      RUST_LOG: ${RUST_LOG:-info,timelord=debug}
+      DATABASE_URL: postgres://timelord:${POSTGRES_PASSWORD:-timelord_dev}@postgres:5432/timelord
+      NATS_URL: nats://nats:4222
+      CALENDAR_HTTP_PORT: "3002"
+      CALENDAR_GRPC_PORT: "50052"
+      AUTH_SERVICE_URL: http://auth:50051
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3002/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  gateway:
+    build:
+      context: .
+      dockerfile: crates/timelord-gateway/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      RUST_LOG: ${RUST_LOG:-info,timelord=debug}
+      GATEWAY_PORT: "8080"
+      REDIS_URL: redis://redis:6379
+      AUTH_SERVICE_HTTP_URL: http://auth:3001
+      AUTH_SERVICE_GRPC_URL: http://auth:50051
+      CALENDAR_SERVICE_HTTP_URL: http://calendar:3002
+      JWT_PUBLIC_KEY_PEM: ${JWT_PUBLIC_KEY_PEM}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+    depends_on:
+      auth:
+        condition: service_healthy
+      calendar:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  pgdata:
+  redisdata:
+  natsdata:

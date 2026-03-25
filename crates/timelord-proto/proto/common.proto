@@ -1,0 +1,12 @@
+syntax = "proto3";
+package timelord.common;
+
+message PaginationRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+message PaginationResponse {
+  string next_page_token = 1;
+  int32 total_count = 2;
+}

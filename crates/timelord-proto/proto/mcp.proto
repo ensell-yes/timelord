@@ -1,0 +1,15 @@
+syntax = "proto3";
+package timelord.mcp;
+
+// MCP service — Phase 4. Stub only.
+service McpService {
+  rpc GetContextFiles(GetContextFilesRequest) returns (GetContextFilesResponse);
+}
+
+message GetContextFilesRequest {
+  string user_id = 1;
+}
+
+message GetContextFilesResponse {
+  repeated string file_names = 1;
+}

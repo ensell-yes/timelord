@@ -1,0 +1,15 @@
+syntax = "proto3";
+package timelord.sync;
+
+// Sync service — Phase 2. Stub only.
+service SyncService {
+  rpc GetSyncStatus(GetSyncStatusRequest) returns (GetSyncStatusResponse);
+}
+
+message GetSyncStatusRequest {
+  string org_id = 1;
+}
+
+message GetSyncStatusResponse {
+  string status = 1;
+}

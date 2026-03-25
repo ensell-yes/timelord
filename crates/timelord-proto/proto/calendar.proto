@@ -1,0 +1,122 @@
+syntax = "proto3";
+package timelord.calendar;
+
+import "common.proto";
+
+service CalendarService {
+  rpc ListCalendars(ListCalendarsRequest) returns (ListCalendarsResponse);
+  rpc GetCalendar(GetCalendarRequest) returns (Calendar);
+  rpc ListEvents(ListEventsRequest) returns (ListEventsResponse);
+  rpc GetEvent(GetEventRequest) returns (Event);
+  rpc CreateEvent(CreateEventRequest) returns (Event);
+  rpc UpdateEvent(UpdateEventRequest) returns (Event);
+  rpc DeleteEvent(DeleteEventRequest) returns (DeleteEventResponse);
+}
+
+message ListCalendarsRequest {
+  string org_id = 1;
+  string user_id = 2;
+  timelord.common.PaginationRequest pagination = 3;
+}
+
+message ListCalendarsResponse {
+  repeated Calendar calendars = 1;
+  timelord.common.PaginationResponse pagination = 2;
+}
+
+message GetCalendarRequest {
+  string org_id = 1;
+  string calendar_id = 2;
+}
+
+message Calendar {
+  string id = 1;
+  string org_id = 2;
+  string user_id = 3;
+  string provider = 4;
+  string provider_calendar_id = 5;
+  string name = 6;
+  string color = 7;
+  bool is_primary = 8;
+  bool is_visible = 9;
+  string timezone = 10;
+  bool sync_enabled = 11;
+}
+
+message ListEventsRequest {
+  string org_id = 1;
+  string calendar_id = 2;
+  int64 time_min_unix = 3;
+  int64 time_max_unix = 4;
+  timelord.common.PaginationRequest pagination = 5;
+}
+
+message ListEventsResponse {
+  repeated Event events = 1;
+  timelord.common.PaginationResponse pagination = 2;
+}
+
+message GetEventRequest {
+  string org_id = 1;
+  string event_id = 2;
+}
+
+message Event {
+  string id = 1;
+  string org_id = 2;
+  string calendar_id = 3;
+  string title = 4;
+  string description = 5;
+  string location = 6;
+  int64 start_at_unix = 7;
+  int64 end_at_unix = 8;
+  bool all_day = 9;
+  string timezone = 10;
+  string status = 11;
+  string visibility = 12;
+  bool is_organizer = 13;
+  string organizer_email = 14;
+  string self_rsvp_status = 15;
+  string attendees_json = 16;
+  string recurrence_rule = 17;
+  bool is_movable = 18;
+  bool is_heads_down = 19;
+}
+
+message CreateEventRequest {
+  string org_id = 1;
+  string calendar_id = 2;
+  string title = 3;
+  string description = 4;
+  string location = 5;
+  int64 start_at_unix = 6;
+  int64 end_at_unix = 7;
+  bool all_day = 8;
+  string timezone = 9;
+  string visibility = 10;
+  string attendees_json = 11;
+  string recurrence_rule = 12;
+}
+
+message UpdateEventRequest {
+  string org_id = 1;
+  string event_id = 2;
+  optional string title = 3;
+  optional string description = 4;
+  optional string location = 5;
+  optional int64 start_at_unix = 6;
+  optional int64 end_at_unix = 7;
+  optional string timezone = 8;
+  optional string visibility = 9;
+  optional bool is_movable = 10;
+  optional bool is_heads_down = 11;
+}
+
+message DeleteEventRequest {
+  string org_id = 1;
+  string event_id = 2;
+}
+
+message DeleteEventResponse {
+  bool deleted = 1;
+}

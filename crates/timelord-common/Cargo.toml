@@ -1,0 +1,23 @@
+[package]
+name = "timelord-common"
+description = "Shared types, helpers, and middleware for Timelord services"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+timelord-proto.workspace = true
+axum.workspace = true
+sqlx.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+jsonwebtoken.workspace = true
+dotenvy.workspace = true
+tonic.workspace = true
