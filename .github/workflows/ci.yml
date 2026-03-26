@@ -106,5 +106,4 @@ jobs:
           DATABASE_URL: postgres://timelord:test_password@localhost:5432/timelord_test
           REDIS_URL: redis://localhost:6379
           NATS_URL: nats://localhost:4222
-          SQLX_OFFLINE: "false"
         run: cargo test --workspace -- --ignored
