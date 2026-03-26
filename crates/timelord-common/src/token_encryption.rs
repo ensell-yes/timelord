@@ -3,7 +3,8 @@ use aes_gcm::{
     aead::{Aead, KeyInit, OsRng},
     Aes256Gcm, Nonce,
 };
-use timelord_common::error::AppError;
+
+use crate::error::AppError;
 
 const NONCE_SIZE: usize = 12;
 

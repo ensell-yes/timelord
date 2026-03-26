@@ -70,13 +70,23 @@ Gateway (:8080)  →  Auth (:3001)  +  Calendar (:3002)  +  [future services]
 
 ### Migration ownership
 - Auth service owns migrations 1-6 (runs at startup)
-- Calendar service owns migrations 10-11 (runs at startup)
-- `set_ignore_missing(true)` — services tolerate migrations from other services
+- Calendar service owns migrations 10-12 (runs at startup)
+- Sync service runs calendar migrations with `set_ignore_missing(true)`
 - Migration timestamp format: `YYYYMMDDNNNNNN_description.sql`
 
 ### NATS domain events
-- Calendar mutations publish to `timelord.events.{created,updated,deleted}`
+- Calendar mutations publish to `timelord.{calendar,event}.{created,deleted}`
+- Sync publishes `timelord.event.synced` and `timelord.event.cancelled`
 - Subject format: `timelord.<entity>.<action>`
+
+### Provider sync (Phase 2)
+- Sync service polls Google Calendar API and Microsoft Graph on an interval (`SYNC_INTERVAL_SECS`, default 300s)
+- Lists work items via `list_sync_work_items()` SECURITY DEFINER function (cross-org RLS bypass)
+- Each calendar synced under `SET LOCAL app.current_org_id` for RLS
+- Token refresh: `SELECT ... FOR UPDATE` in short transaction, never held across HTTP calls
+- Google: uses `syncToken` for incremental sync; 410 Gone → full re-sync
+- Microsoft: uses `/events/delta` endpoint; `@removed` → set local status=cancelled
+- `TokenEncryptor` lives in `timelord-common` (shared across auth, calendar, sync)
 
 ## Adding a new service
 

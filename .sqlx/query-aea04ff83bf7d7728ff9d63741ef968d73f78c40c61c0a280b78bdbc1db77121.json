@@ -1,0 +1,70 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO events (\n            org_id, calendar_id, provider_event_id, provider_etag,\n            title, description, location, conference_data,\n            start_at, end_at, all_day, timezone,\n            status, visibility,\n            is_organizer, organizer_email, self_rsvp_status,\n            attendees, recurrence_rule, recurring_event_id, is_recurring_instance,\n            reminders, extended_properties,\n            provider_synced_at\n        ) VALUES (\n            $1, $2, $3, $4,\n            $5, $6, $7, $8,\n            $9, $10, $11, $12,\n            $13::event_status, $14::event_visibility,\n            $15, $16, $17::rsvp_status,\n            $18, $19, $20, $21,\n            $22, $23,\n            now()\n        )\n        ON CONFLICT (calendar_id, provider_event_id)\n        DO UPDATE SET\n            provider_etag = EXCLUDED.provider_etag,\n            title = EXCLUDED.title,\n            description = EXCLUDED.description,\n            location = EXCLUDED.location,\n            conference_data = EXCLUDED.conference_data,\n            start_at = EXCLUDED.start_at,\n            end_at = EXCLUDED.end_at,\n            all_day = EXCLUDED.all_day,\n            timezone = EXCLUDED.timezone,\n            status = EXCLUDED.status,\n            visibility = EXCLUDED.visibility,\n            is_organizer = EXCLUDED.is_organizer,\n            organizer_email = EXCLUDED.organizer_email,\n            self_rsvp_status = EXCLUDED.self_rsvp_status,\n            attendees = EXCLUDED.attendees,\n            recurrence_rule = EXCLUDED.recurrence_rule,\n            recurring_event_id = EXCLUDED.recurring_event_id,\n            is_recurring_instance = EXCLUDED.is_recurring_instance,\n            reminders = EXCLUDED.reminders,\n            extended_properties = EXCLUDED.extended_properties,\n            provider_synced_at = now(),\n            updated_at = now()\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Jsonb",
+        "Timestamptz",
+        "Timestamptz",
+        "Bool",
+        "Text",
+        {
+          "Custom": {
+            "name": "event_status",
+            "kind": {
+              "Enum": [
+                "confirmed",
+                "tentative",
+                "cancelled"
+              ]
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "event_visibility",
+            "kind": {
+              "Enum": [
+                "public",
+                "private",
+                "confidential"
+              ]
+            }
+          }
+        },
+        "Bool",
+        "Text",
+        {
+          "Custom": {
+            "name": "rsvp_status",
+            "kind": {
+              "Enum": [
+                "accepted",
+                "declined",
+                "tentative",
+                "needs_action"
+              ]
+            }
+          }
+        },
+        "Jsonb",
+        "Text",
+        "Text",
+        "Bool",
+        "Jsonb",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "aea04ff83bf7d7728ff9d63741ef968d73f78c40c61c0a280b78bdbc1db77121"
+}

@@ -2,7 +2,6 @@ pub mod jwt;
 pub mod oauth;
 pub mod rbac;
 pub mod session;
-pub mod token_encryption;
 
 use redis::aio::ConnectionManager;
 use sqlx::PgPool;
@@ -17,7 +16,7 @@ pub struct AppState {
     pub config: Arc<Config>,
     pub redis: ConnectionManager,
     pub jwt: Arc<jwt::JwtService>,
-    pub encryptor: Arc<token_encryption::TokenEncryptor>,
+    pub encryptor: Arc<timelord_common::token_encryption::TokenEncryptor>,
 }
 
 impl AppState {
@@ -25,7 +24,7 @@ impl AppState {
         let redis_client = redis::Client::open(config.redis_url.as_str())?;
         let redis = ConnectionManager::new(redis_client).await?;
         let jwt = Arc::new(jwt::JwtService::new(&config)?);
-        let encryptor = Arc::new(token_encryption::TokenEncryptor::new(
+        let encryptor = Arc::new(timelord_common::token_encryption::TokenEncryptor::new(
             &config.encryption_key,
         )?);
         Ok(Self {

@@ -432,6 +432,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "chrono-tz"
+version = "0.10.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6139a8597ed92cf816dfb33f5dd6cf0bb93a6adc938f11039f371bc5bcd26c3"
+dependencies = [
+ "chrono",
+ "phf",
+]
+
+[[package]]
 name = "cipher"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1959,6 +1969,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "phf"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "913273894cec178f401a31ec4b656318d95473527be05c0752cc41cdc32be8b7"
+dependencies = [
+ "phf_shared",
+]
+
+[[package]]
+name = "phf_shared"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06005508882fb681fd97892ecff4b7fd0fee13ef1aa569f8695dae7ab9099981"
+dependencies = [
+ "siphasher",
+]
+
+[[package]]
 name = "pin-project"
 version = "1.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2833,6 +2861,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "siphasher"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b2aa850e253778c88a04c3d7323b043aeda9d3e30d5971937c1855769763678e"
+
+[[package]]
 name = "slab"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3352,11 +3386,14 @@ dependencies = [
 name = "timelord-common"
 version = "0.1.0"
 dependencies = [
+ "aes-gcm",
  "anyhow",
  "axum 0.8.8",
  "chrono",
  "dotenvy",
+ "hex",
  "jsonwebtoken",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "sqlx",
@@ -3439,13 +3476,19 @@ name = "timelord-sync"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-nats",
  "axum 0.8.8",
+ "chrono",
+ "chrono-tz",
  "dotenvy",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
+ "sqlx",
  "timelord-common",
  "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]

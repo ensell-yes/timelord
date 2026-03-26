@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE sync_state\n        SET sync_token = $2,\n            last_synced_at = now(),\n            last_error = NULL,\n            event_count = $3,\n            updated_at = now()\n        WHERE calendar_id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "89f364eb061da362e4e285ad82ba2252119c862ffc5e4b51eb5e3dae62a59299"
+}
