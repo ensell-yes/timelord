@@ -180,6 +180,7 @@ pub async fn get_pending_suggestions(
         JOIN events e ON e.id = os.event_id
         WHERE r.org_id = $1 AND r.user_id = $2
           AND r.status = 'completed'
+          AND os.applied = false
           AND os.created_at > now() - interval '7 days'
         ORDER BY os.created_at DESC
         LIMIT 20
