@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use timelord_common::error::AppError;
 
-/// Focus time: total minutes in contiguous free blocks ≥ 2h during working hours (9-17).
+/// Free working minutes: total working hours (8h/day) minus time occupied by events.
 pub async fn focus_minutes_in_window<'e>(
     executor: impl sqlx::PgExecutor<'e>,
     org_id: Uuid,

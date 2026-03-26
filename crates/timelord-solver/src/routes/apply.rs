@@ -32,6 +32,11 @@ pub async fn apply(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Optimization run {run_id} not found")))?;
 
+    // Only the user who created the run can apply its suggestions
+    if run.user_id != claims.sub {
+        return Err(AppError::Forbidden);
+    }
+
     if run.status != "completed" {
         return Err(AppError::BadRequest(format!(
             "Run status is '{}', expected 'completed'",
@@ -51,6 +56,13 @@ pub async fn apply(
             .ok_or_else(|| {
                 AppError::NotFound(format!("Suggestion {suggestion_id} not found"))
             })?;
+
+        // Ensure suggestion belongs to this run (prevents cross-run abuse)
+        if suggestion.run_id != run_id {
+            return Err(AppError::BadRequest(format!(
+                "Suggestion {suggestion_id} does not belong to run {run_id}"
+            )));
+        }
 
         // Update event times
         event_repo::update_times(
