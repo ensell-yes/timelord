@@ -124,12 +124,10 @@ async fn sync_one_calendar(
     )
     .await?;
 
-    tx.commit().await.map_err(AppError::internal)?;
-
-    // Audit after commit (fire-and-forget, uses pool directly)
+    // Audit inside transaction (RLS context already set)
     if !sync_result.events.is_empty() {
         insert_audit(
-            pool,
+            &mut *tx,
             AuditEntry::new(item.org_id, "sync", "calendar")
                 .entity(item.calendar_id)
                 .meta(serde_json::json!({
@@ -140,6 +138,8 @@ async fn sync_one_calendar(
         )
         .await;
     }
+
+    tx.commit().await.map_err(AppError::internal)?;
 
     // Publish NATS events (after commit)
     if mutations > 0 {
@@ -166,8 +166,11 @@ async fn acquire_access_token(
     config: &Config,
     item: &calendar_repo::SyncWorkItem,
 ) -> Result<String, AppError> {
-    // Check token outside a lock first
-    let token = provider_token::find_for_user(pool, item.user_id, &item.provider)
+    // Always read inside a transaction with RLS context
+    let mut tx = pool.begin().await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, item.org_id).await.map_err(AppError::internal)?;
+
+    let token = provider_token::find_for_user_locked(&mut tx, item.user_id, &item.provider)
         .await?
         .ok_or_else(|| {
             AppError::internal(format!(
@@ -176,38 +179,16 @@ async fn acquire_access_token(
             ))
         })?;
 
-    let access_nonce = &token.token_nonce[..12];
-
     if token.expires_at > Utc::now() {
-        return encryptor.decrypt(&token.access_token_enc, access_nonce);
-    }
-
-    // Expired — lock row, re-check, and refresh if still expired
-    let mut tx = pool.begin().await.map_err(AppError::internal)?;
-    db::set_rls_context(&mut tx, item.org_id).await.map_err(AppError::internal)?;
-
-    let locked = provider_token::find_for_user_locked(&mut tx, item.user_id, &item.provider)
-        .await?
-        .ok_or_else(|| {
-            AppError::internal(format!(
-                "Provider token disappeared for user {} provider {}",
-                item.user_id, item.provider
-            ))
-        })?;
-
-    // Re-check expiry after acquiring lock — another worker may have refreshed
-    if locked.expires_at > Utc::now() {
-        let nonce = &locked.token_nonce[..12];
-        let decrypted = encryptor.decrypt(&locked.access_token_enc, nonce)?;
+        let access_nonce = &token.token_nonce[..12];
+        let decrypted = encryptor.decrypt(&token.access_token_enc, access_nonce)?;
         tx.commit().await.map_err(AppError::internal)?;
         return Ok(decrypted);
     }
 
-    // Still expired — perform refresh
-    let refresh_nonce = &locked.token_nonce[12..];
-    let refresh_token_plain = encryptor.decrypt(&locked.refresh_token_enc, refresh_nonce)?;
-
-    // Release the lock before the HTTP call (commit tx), refresh, then re-lock to update
+    // Expired — decrypt refresh token, release lock before HTTP call
+    let refresh_nonce = &token.token_nonce[12..];
+    let refresh_token_plain = encryptor.decrypt(&token.refresh_token_enc, refresh_nonce)?;
     tx.commit().await.map_err(AppError::internal)?;
 
     let result = match item.provider.as_str() {

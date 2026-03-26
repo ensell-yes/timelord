@@ -60,9 +60,10 @@ Gateway (:8080)  →  Auth (:3001)  +  Calendar (:3002)  +  [future services]
 - Personal org auto-created on first login; `users.last_active_org_id` tracks default org
 
 ### Multi-tenancy
-- All tenant-scoped tables carry `org_id`
-- Every DB transaction sets `SET LOCAL app.current_org_id = '<org_id>'` for RLS
+- All tenant-scoped tables carry `org_id` with RLS policies
 - Repos always take `org_id: Uuid` as first parameter — enforced by code review
+- **Sync service + provider listing:** all DB operations use `db::set_rls_context()` in transactions
+- **Calendar/auth HTTP CRUD:** currently relies on app-layer `org_id` parameters as defense-in-depth; RLS session vars (`SET LOCAL app.current_org_id`) are not yet set per-request. This works because the dev DB user is the table owner (bypasses RLS). **Production TODO:** add per-request RLS middleware or `FORCE ROW LEVEL SECURITY` + split DB roles.
 
 ### Audit log
 - Every mutation calls `timelord_common::audit::insert_audit()` from the service layer

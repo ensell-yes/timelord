@@ -21,13 +21,10 @@ pub async fn list_provider_calendars(
     let mut all_calendars = Vec::new();
 
     for provider in &["google", "microsoft"] {
-        let token = provider_token::find_for_user(&state.pool, claims.sub, provider).await?;
-        let token = match token {
+        let access_token = match get_valid_access_token(&state, claims.sub, provider, claims.org).await? {
             Some(t) => t,
             None => continue,
         };
-
-        let access_token = get_valid_access_token(&state, &token, provider, claims.org).await?;
 
         let calendars = match *provider {
             "google" => {
@@ -61,44 +58,37 @@ pub async fn list_provider_calendars(
 }
 
 /// Get a valid (non-expired) access token, refreshing if needed.
-/// If refresh is required, locks the row in a short transaction,
-/// re-checks expiry (another worker may have refreshed), then refreshes.
+/// Returns None if no token exists for this provider.
+/// Always reads within a transaction with RLS context.
 async fn get_valid_access_token(
     state: &AppState,
-    token: &timelord_common::provider_token::ProviderToken,
+    user_id: uuid::Uuid,
     provider: &str,
     org_id: uuid::Uuid,
-) -> Result<String, AppError> {
-    let access_nonce = &token.token_nonce[..12];
-
-    if token.expires_at > Utc::now() {
-        return state.encryptor.decrypt(&token.access_token_enc, access_nonce);
-    }
-
-    // Token expired — lock row and re-check (TOCTOU: another request may have refreshed)
+) -> Result<Option<String>, AppError> {
+    // Read token in a transaction with RLS context
     let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
     db::set_rls_context(&mut tx, org_id).await.map_err(AppError::internal)?;
 
-    let locked = provider_token::find_for_user_locked(&mut tx, token.user_id, provider)
-        .await?
-        .ok_or_else(|| {
-            AppError::internal(format!(
-                "Provider token disappeared for user {} provider {provider}",
-                token.user_id
-            ))
-        })?;
+    let token = provider_token::find_for_user_locked(&mut tx, user_id, provider).await?;
+    let token = match token {
+        Some(t) => t,
+        None => {
+            tx.commit().await.map_err(AppError::internal)?;
+            return Ok(None);
+        }
+    };
 
-    // Re-check expiry after acquiring lock
-    if locked.expires_at > Utc::now() {
-        let nonce = &locked.token_nonce[..12];
-        let decrypted = state.encryptor.decrypt(&locked.access_token_enc, nonce)?;
+    if token.expires_at > Utc::now() {
+        let access_nonce = &token.token_nonce[..12];
+        let decrypted = state.encryptor.decrypt(&token.access_token_enc, access_nonce)?;
         tx.commit().await.map_err(AppError::internal)?;
-        return Ok(decrypted);
+        return Ok(Some(decrypted));
     }
 
-    // Still expired — decrypt refresh token, release lock, then call provider
-    let refresh_nonce = &locked.token_nonce[12..];
-    let refresh_token_plain = state.encryptor.decrypt(&locked.refresh_token_enc, refresh_nonce)?;
+    // Expired — decrypt refresh token, release lock before HTTP call
+    let refresh_nonce = &token.token_nonce[12..];
+    let refresh_token_plain = state.encryptor.decrypt(&token.refresh_token_enc, refresh_nonce)?;
     tx.commit().await.map_err(AppError::internal)?;
 
     let result = match provider {
@@ -135,12 +125,11 @@ async fn get_valid_access_token(
     let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
     db::set_rls_context(&mut tx, org_id).await.map_err(AppError::internal)?;
 
-    let locked = provider_token::find_for_user_locked(&mut tx, token.user_id, provider)
+    let locked = provider_token::find_for_user_locked(&mut tx, user_id, provider)
         .await?
         .ok_or_else(|| {
             AppError::internal(format!(
-                "Provider token disappeared during refresh for user {} provider {provider}",
-                token.user_id
+                "Provider token disappeared during refresh for user {user_id} provider {provider}",
             ))
         })?;
 
@@ -155,5 +144,5 @@ async fn get_valid_access_token(
     .await?;
     tx.commit().await.map_err(AppError::internal)?;
 
-    Ok(result.access_token)
+    Ok(Some(result.access_token))
 }

@@ -1,5 +1,4 @@
 use serde_json::Value;
-use sqlx::PgPool;
 use uuid::Uuid;
 
 /// An audit log entry describing a write operation.
@@ -50,7 +49,8 @@ impl AuditEntry {
 }
 
 /// Insert an audit log entry. Fire-and-forget — logs errors but does not fail the caller.
-pub async fn insert_audit(pool: &PgPool, entry: AuditEntry) {
+/// Accepts any sqlx executor: `&PgPool`, `&mut PgConnection`, or `&mut Transaction`.
+pub async fn insert_audit<'e>(executor: impl sqlx::PgExecutor<'e>, entry: AuditEntry) {
     let ip_str = entry.ip_address.map(|ip| ip.to_string());
     let result = sqlx::query(
         r#"
@@ -65,7 +65,7 @@ pub async fn insert_audit(pool: &PgPool, entry: AuditEntry) {
     .bind(entry.entity_id)
     .bind(&entry.metadata)
     .bind(ip_str.as_deref())
-    .execute(pool)
+    .execute(executor)
     .await;
 
     if let Err(e) = result {
