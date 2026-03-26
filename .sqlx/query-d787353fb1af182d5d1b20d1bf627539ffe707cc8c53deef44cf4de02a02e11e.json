@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO sync_state (org_id, calendar_id, last_error)\n        VALUES ($1, $2, $3)\n        ON CONFLICT (calendar_id) DO UPDATE SET\n            last_error = EXCLUDED.last_error,\n            updated_at = now()\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d787353fb1af182d5d1b20d1bf627539ffe707cc8c53deef44cf4de02a02e11e"
+}

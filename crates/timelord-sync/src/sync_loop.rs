@@ -59,6 +59,7 @@ pub async fn run_sync_loop(
                     if db::set_rls_context(&mut tx, item.org_id).await.is_ok() {
                         let _ = sync_state_repo::record_error(
                             &mut tx,
+                            item.org_id,
                             item.calendar_id,
                             &e.to_string(),
                         )
@@ -92,7 +93,7 @@ async fn sync_one_calendar(
             );
             let mut tx = pool.begin().await.map_err(AppError::internal)?;
             db::set_rls_context(&mut tx, item.org_id).await.map_err(AppError::internal)?;
-            sync_state_repo::clear_sync_token(&mut tx, item.calendar_id).await?;
+            sync_state_repo::clear_sync_token(&mut tx, item.org_id, item.calendar_id).await?;
             tx.commit().await.map_err(AppError::internal)?;
             return Ok(());
         }
@@ -118,6 +119,7 @@ async fn sync_one_calendar(
     // Update sync state
     sync_state_repo::update_after_sync(
         &mut tx,
+        item.org_id,
         item.calendar_id,
         sync_result.next_sync_token.as_deref(),
         sync_result.events.len() as i32,
