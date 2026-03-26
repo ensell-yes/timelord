@@ -61,9 +61,12 @@ struct GoogleOrganizer {
 #[derive(Debug, Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct GoogleAttendee {
+    email: Option<String>,
+    display_name: Option<String>,
     #[serde(rename = "self")]
     is_self: Option<bool>,
     response_status: Option<String>,
+    optional: Option<bool>,
 }
 
 // ---------------------------------------------------------------------------

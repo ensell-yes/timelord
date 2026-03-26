@@ -36,8 +36,8 @@ pub async fn find_by_id(
     Ok(cal)
 }
 
-pub async fn create(
-    pool: &PgPool,
+pub async fn create<'e>(
+    executor: impl sqlx::PgExecutor<'e>,
     org_id: Uuid,
     user_id: Uuid,
     req: &CreateCalendarRequest,
@@ -59,7 +59,7 @@ pub async fn create(
         req.timezone.as_deref().unwrap_or("UTC"),
         req.display_mode.as_deref().unwrap_or("busy"),
     )
-    .fetch_one(pool)
+    .fetch_one(executor)
     .await?;
     Ok(cal)
 }

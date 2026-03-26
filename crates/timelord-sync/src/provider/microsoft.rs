@@ -120,6 +120,13 @@ pub async fn fetch_microsoft_events(
         let status = resp.status();
         if !status.is_success() {
             let body = resp.text().await.unwrap_or_default();
+            // Graph returns 410 Gone or specific error codes when delta tokens expire
+            if status == reqwest::StatusCode::GONE
+                || (status == reqwest::StatusCode::BAD_REQUEST
+                    && body.contains("syncStateNotFound"))
+            {
+                return Err(AppError::SyncTokenInvalid);
+            }
             return Err(AppError::internal(format!(
                 "Microsoft Graph API error ({status}): {body}"
             )));
