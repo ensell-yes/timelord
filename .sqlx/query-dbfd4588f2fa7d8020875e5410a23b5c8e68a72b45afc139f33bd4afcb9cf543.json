@@ -1,0 +1,80 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT e.id, c.name AS calendar_name, e.title,\n               e.start_at, e.end_at, e.all_day,\n               e.is_movable, e.is_heads_down,\n               e.status::text AS \"status!\",\n               COALESCE(jsonb_array_length(e.attendees), 0)::bigint AS \"attendee_count!\"\n        FROM events e\n        JOIN calendars c ON c.id = e.calendar_id\n        WHERE e.org_id = $1 AND c.user_id = $2\n          AND e.status != 'cancelled'\n          AND e.title ILIKE $3\n          AND ($4::timestamptz IS NULL OR e.end_at > $4)\n          AND ($5::timestamptz IS NULL OR e.start_at < $5)\n        ORDER BY e.start_at ASC\n        LIMIT 50\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "calendar_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "title",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "start_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "end_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "all_day",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "is_movable",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 7,
+        "name": "is_heads_down",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "status!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "attendee_count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "dbfd4588f2fa7d8020875e5410a23b5c8e68a72b45afc139f33bd4afcb9cf543"
+}

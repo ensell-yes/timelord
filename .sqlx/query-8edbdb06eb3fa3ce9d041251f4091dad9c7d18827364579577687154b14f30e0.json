@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO analytics_snapshots (org_id, user_id, snapshot_date, health_score, metrics)\n        VALUES ($1, $2, $3, $4, $5)\n        ON CONFLICT (org_id, user_id, snapshot_date) DO UPDATE SET\n            health_score = EXCLUDED.health_score,\n            metrics = EXCLUDED.metrics\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Date",
+        "Int4",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8edbdb06eb3fa3ce9d041251f4091dad9c7d18827364579577687154b14f30e0"
+}

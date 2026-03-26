@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT os.id, e.title AS event_title,\n               os.original_start, os.suggested_start,\n               os.reason, os.applied\n        FROM optimization_suggestions os\n        JOIN optimization_runs r ON r.id = os.run_id\n        JOIN events e ON e.id = os.event_id\n        WHERE r.org_id = $1 AND r.user_id = $2\n          AND r.status = 'completed'\n          AND os.created_at > now() - interval '7 days'\n        ORDER BY os.created_at DESC\n        LIMIT 20\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "event_title",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "original_start",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "suggested_start",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "reason",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "applied",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "0ffa387b9015c003e5d36466fa95bf6d33c09dabc6ccae91073acaf54ea641ca"
+}

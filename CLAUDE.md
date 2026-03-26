@@ -80,6 +80,20 @@ Gateway (:8080)  →  Auth (:3001)  +  Calendar (:3002)  +  [future services]
 - Sync publishes `timelord.event.synced` and `timelord.event.cancelled`
 - Subject format: `timelord.<entity>.<action>`
 
+### Analytics (Phase 4)
+- Health score (0-100) computed from: focus time ratio, fragmentation, RSVP completeness, sync freshness, optimization adoption
+- NATS listener subscribes to `timelord.>` and updates daily snapshots
+- `GET /api/v1/analytics/health` — current score + metric breakdown
+- `GET /api/v1/analytics/trends?days=30` — daily score history
+- Analytics service owns migrations 30-39
+
+### MCP Server (Phase 4)
+- Model Context Protocol server for AI agent integration (Claude CLI/Code)
+- Transport: stdio (primary), HTTP health endpoint
+- Tools: `list_calendars`, `list_events`, `search_events`, `get_optimization_suggestions`
+- Uses `rmcp` 1.2 SDK with `tool_router` + `tool_handler` macros
+- Auth context via `MCP_ORG_ID` / `MCP_USER_ID` env vars (session auth in future)
+
 ### Calendar optimization (Phase 3)
 - Solver service exposes `POST /api/v1/optimize` (trigger) + `POST /api/v1/optimize/:run_id/apply` (accept suggestions)
 - ILP formulation: 15-minute time slots, assignment + no-overlap constraints, movement cost objective

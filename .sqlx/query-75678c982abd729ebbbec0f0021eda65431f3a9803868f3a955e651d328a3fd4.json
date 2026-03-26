@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT snapshot_date, health_score, metrics\n        FROM analytics_snapshots\n        WHERE org_id = $1 AND user_id = $2\n          AND snapshot_date >= CURRENT_DATE - $3::integer\n        ORDER BY snapshot_date ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "snapshot_date",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 1,
+        "name": "health_score",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "metrics",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "75678c982abd729ebbbec0f0021eda65431f3a9803868f3a955e651d328a3fd4"
+}

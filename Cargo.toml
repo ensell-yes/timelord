@@ -77,7 +77,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 good_lp = { version = "1", default-features = false, features = ["clarabel"] }
 
 # MCP (mcp stub)
-rmcp = { version = "0.1", features = ["server", "transport-sse-server", "transport-child-process"] }
+rmcp = { version = "1.2", features = ["server", "transport-io"] }
 
 # Crypto
 aes-gcm = "0.10"

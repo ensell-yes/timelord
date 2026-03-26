@@ -1,15 +1,20 @@
-/// MCP stub — Phase 4 will implement full Model Context Protocol server.
+mod config;
+mod repo;
+mod tools;
+
+use std::sync::Arc;
+
 use axum::{routing::get, Json, Router};
 use dotenvy::dotenv;
+use rmcp::ServiceExt;
 use serde_json::{json, Value};
-use timelord_common::{config::env_parse, telemetry};
+use timelord_common::{db, telemetry};
 
-pub async fn healthz() -> Json<Value> {
+async fn healthz() -> Json<Value> {
     Json(json!({
         "status": "ok",
         "service": "timelord-mcp",
-        "phase": "stub — MCP server in Phase 4",
-        "transports": ["stdio", "sse"]
+        "transports": ["stdio"],
     }))
 }
 
@@ -18,11 +23,31 @@ async fn main() -> anyhow::Result<()> {
     dotenv().ok();
     telemetry::init("timelord-mcp");
 
-    let port: u16 = env_parse("MCP_HTTP_PORT", 3006);
-    let app = Router::new().route("/healthz", get(healthz));
+    let config = config::Config::from_env()?;
+    let pool = db::create_pool(&config.database_url).await?;
+    let pool = Arc::new(pool);
 
-    tracing::info!(port = port, "timelord-mcp stub listening");
-    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await?;
-    axum::serve(listener, app).await?;
+    let handler = tools::TimelordTools::new(pool);
+
+    match config.transport.as_str() {
+        "stdio" => {
+            tracing::info!("starting MCP server on stdio");
+            let transport = rmcp::transport::stdio();
+            let server = handler.serve(transport).await?;
+            server.waiting().await?;
+        }
+        "http" => {
+            // HTTP mode: serve health endpoint only (MCP stdio is the primary transport)
+            let app = Router::new().route("/healthz", get(healthz));
+            let addr = format!("0.0.0.0:{}", config.http_port);
+            tracing::info!(addr = %addr, "timelord-mcp HTTP listening (stdio is primary MCP transport)");
+            let listener = tokio::net::TcpListener::bind(&addr).await?;
+            axum::serve(listener, app).await?;
+        }
+        other => {
+            anyhow::bail!("Unknown MCP_TRANSPORT: {other} (expected 'stdio' or 'http')");
+        }
+    }
+
     Ok(())
 }
