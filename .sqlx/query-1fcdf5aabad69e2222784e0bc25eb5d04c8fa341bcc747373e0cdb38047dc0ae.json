@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE optimization_runs SET status = 'failed', error = $2, completed_at = now() WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1fcdf5aabad69e2222784e0bc25eb5d04c8fa341bcc747373e0cdb38047dc0ae"
+}

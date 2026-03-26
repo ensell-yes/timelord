@@ -80,6 +80,13 @@ Gateway (:8080)  →  Auth (:3001)  +  Calendar (:3002)  +  [future services]
 - Sync publishes `timelord.event.synced` and `timelord.event.cancelled`
 - Subject format: `timelord.<entity>.<action>`
 
+### Calendar optimization (Phase 3)
+- Solver service exposes `POST /api/v1/optimize` (trigger) + `POST /api/v1/optimize/:run_id/apply` (accept suggestions)
+- ILP formulation: 15-minute time slots, assignment + no-overlap constraints, movement cost objective
+- Uses `good_lp` + `clarabel` with LP relaxation (TU constraint matrix gives integral solutions without MIP)
+- Suggestions stored in `optimization_suggestions` table; events only moved when user applies them
+- Solver service owns migrations 20-29
+
 ### Provider sync (Phase 2)
 - Sync service polls Google Calendar API and Microsoft Graph on an interval (`SYNC_INTERVAL_SECS`, default 300s)
 - Lists work items via `list_sync_work_items()` SECURITY DEFINER function (cross-org RLS bypass)

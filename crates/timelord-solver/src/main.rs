@@ -1,33 +1,40 @@
-/// Solver stub — verifies good_lp dependency compiles.
-/// Phase 3 will implement the full ILP optimization engine.
-use axum::{routing::get, Json, Router};
+mod config;
+mod models;
+mod repo;
+mod routes;
+mod solver;
+
+use std::sync::Arc;
+
 use dotenvy::dotenv;
-use serde_json::{json, Value};
-use timelord_common::{config::env_parse, telemetry};
-
-// Verify good_lp compiles (clarabel pure-rust feature)
-#[allow(unused_imports)]
-use good_lp::*;
-
-pub async fn healthz() -> Json<Value> {
-    Json(json!({
-        "status": "ok",
-        "service": "timelord-solver",
-        "solver_backend": "clarabel (pure-rust)",
-        "phase": "stub — ILP engine in Phase 3"
-    }))
-}
+use timelord_common::{db, telemetry};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     dotenv().ok();
     telemetry::init("timelord-solver");
 
-    let port: u16 = env_parse("SOLVER_HTTP_PORT", 3004);
-    let app = Router::new().route("/healthz", get(healthz));
+    let config = config::Config::from_env()?;
+    let pool = db::create_pool(&config.database_url).await?;
 
-    tracing::info!(port = port, "timelord-solver stub listening");
-    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await?;
+    let migrations_path = std::env::var("MIGRATIONS_PATH")
+        .unwrap_or_else(|_| "crates/timelord-solver/migrations".to_string());
+    db::run_migrations(&pool, &migrations_path).await?;
+
+    let nats = async_nats::connect(&config.nats_url).await?;
+    let config = Arc::new(config);
+
+    let state = Arc::new(routes::AppState {
+        pool,
+        config: config.clone(),
+        nats,
+    });
+
+    let app = routes::router(state);
+    let addr = format!("0.0.0.0:{}", config.http_port);
+    tracing::info!(addr = %addr, "timelord-solver listening");
+
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
     axum::serve(listener, app).await?;
     Ok(())
 }

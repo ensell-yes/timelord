@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE optimization_runs\n        SET status = 'completed', metrics = $2, completed_at = now()\n        WHERE id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "dfbaad61119b4a15f64c99c13b9d112ed663487325f8c1a5f7d356b572618be3"
+}

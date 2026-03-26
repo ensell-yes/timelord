@@ -3461,14 +3461,18 @@ name = "timelord-solver"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-nats",
  "axum 0.8.8",
+ "chrono",
  "dotenvy",
  "good_lp",
  "serde",
  "serde_json",
+ "sqlx",
  "timelord-common",
  "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
