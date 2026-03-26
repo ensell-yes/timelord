@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT c.user_id FROM events e JOIN calendars c ON c.id = e.calendar_id WHERE e.org_id = $1 AND e.id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e644b37ff9e049c888f9ff6ab246569c5af4288159dc73984016ad098c9bc9e1"
+}

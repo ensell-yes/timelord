@@ -51,18 +51,14 @@ pub async fn apply(
     db::set_rls_context(&mut tx, claims.org).await.map_err(AppError::internal)?;
 
     for suggestion_id in &body.suggestion_ids {
-        let suggestion = suggestion_repo::mark_applied(&mut *tx, claims.org, *suggestion_id)
+        // mark_applied validates run_id + applied=false atomically in the query
+        let suggestion = suggestion_repo::mark_applied(&mut *tx, claims.org, run_id, *suggestion_id)
             .await?
             .ok_or_else(|| {
-                AppError::NotFound(format!("Suggestion {suggestion_id} not found"))
+                AppError::NotFound(format!(
+                    "Suggestion {suggestion_id} not found, already applied, or does not belong to run {run_id}"
+                ))
             })?;
-
-        // Ensure suggestion belongs to this run (prevents cross-run abuse)
-        if suggestion.run_id != run_id {
-            return Err(AppError::BadRequest(format!(
-                "Suggestion {suggestion_id} does not belong to run {run_id}"
-            )));
-        }
 
         // Update event times
         event_repo::update_times(
@@ -110,6 +106,10 @@ pub async fn get_run(
     let run = run_repo::find_by_id(&mut *tx, claims.org, run_id)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Optimization run {run_id} not found")))?;
+
+    if run.user_id != claims.sub {
+        return Err(AppError::Forbidden);
+    }
 
     let suggestions = suggestion_repo::list_by_run(&mut *tx, claims.org, run_id).await?;
     tx.commit().await.map_err(AppError::internal)?;

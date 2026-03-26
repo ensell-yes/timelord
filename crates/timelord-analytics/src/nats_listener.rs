@@ -27,25 +27,22 @@ pub async fn run_nats_listener(pool: PgPool, nats: NatsClient) {
             None => continue,
         };
 
-        // Try to resolve user_id: first from payload, then from calendar_id → calendars.user_id
-        let user_id = extract_field(&msg.payload, "user_id")
-            .or_else(|| {
-                // entity_id might be a calendar_id or event_id — try calendar_id field first
-                extract_field(&msg.payload, "calendar_id")
-            });
-
-        // If we have a calendar_id, resolve user_id from the DB
-        let user_id = match user_id {
-            Some(id) => resolve_user_from_calendar(&pool, org_id, id).await.or(Some(id)),
-            None => {
-                // Try entity_id as a fallback
-                let entity_id = extract_field(&msg.payload, "entity_id");
-                if let Some(eid) = entity_id {
-                    resolve_user_from_calendar(&pool, org_id, eid).await
-                } else {
-                    None
-                }
+        // Resolve user_id: try direct field, then calendar_id lookup, then
+        // entity_id (which may be an event_id — resolve via events→calendars join)
+        let user_id = if let Some(uid) = extract_field(&msg.payload, "user_id") {
+            Some(uid)
+        } else if let Some(cal_id) = extract_field(&msg.payload, "calendar_id") {
+            resolve_user_from_calendar(&pool, org_id, cal_id).await
+        } else if let Some(entity_id) = extract_field(&msg.payload, "entity_id") {
+            // entity_id could be a calendar_id or event_id — try both lookups
+            let from_cal = resolve_user_from_calendar(&pool, org_id, entity_id).await;
+            if from_cal.is_some() {
+                from_cal
+            } else {
+                resolve_user_from_event(&pool, org_id, entity_id).await
             }
+        } else {
+            None
         };
 
         if let Some(user_id) = user_id {
@@ -81,6 +78,19 @@ async fn resolve_user_from_calendar(pool: &PgPool, org_id: Uuid, calendar_id: Uu
         "SELECT user_id FROM calendars WHERE org_id = $1 AND id = $2",
         org_id,
         calendar_id
+    )
+    .fetch_optional(pool)
+    .await
+    .ok()?;
+    row.map(|r| r.user_id)
+}
+
+/// Resolve user_id from an event_id by joining events → calendars.
+async fn resolve_user_from_event(pool: &PgPool, org_id: Uuid, event_id: Uuid) -> Option<Uuid> {
+    let row = sqlx::query!(
+        "SELECT c.user_id FROM events e JOIN calendars c ON c.id = e.calendar_id WHERE e.org_id = $1 AND e.id = $2",
+        org_id,
+        event_id
     )
     .fetch_optional(pool)
     .await

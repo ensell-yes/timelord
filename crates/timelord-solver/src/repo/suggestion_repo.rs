@@ -51,9 +51,11 @@ pub async fn list_by_run<'e>(
     Ok(rows)
 }
 
+/// Mark a suggestion as applied. Requires matching run_id to prevent cross-run abuse.
 pub async fn mark_applied<'e>(
     executor: impl sqlx::PgExecutor<'e>,
     org_id: Uuid,
+    run_id: Uuid,
     suggestion_id: Uuid,
 ) -> Result<Option<OptimizationSuggestion>, AppError> {
     let row = sqlx::query_as!(
@@ -61,10 +63,11 @@ pub async fn mark_applied<'e>(
         r#"
         UPDATE optimization_suggestions
         SET applied = true, applied_at = now()
-        WHERE org_id = $1 AND id = $2
+        WHERE org_id = $1 AND run_id = $2 AND id = $3 AND applied = false
         RETURNING *
         "#,
         org_id,
+        run_id,
         suggestion_id
     )
     .fetch_optional(executor)

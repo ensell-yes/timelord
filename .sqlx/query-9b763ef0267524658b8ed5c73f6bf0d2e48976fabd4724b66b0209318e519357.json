@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        UPDATE optimization_suggestions\n        SET applied = true, applied_at = now()\n        WHERE org_id = $1 AND id = $2\n        RETURNING *\n        ",
+  "query": "\n        UPDATE optimization_suggestions\n        SET applied = true, applied_at = now()\n        WHERE org_id = $1 AND run_id = $2 AND id = $3 AND applied = false\n        RETURNING *\n        ",
   "describe": {
     "columns": [
       {
@@ -67,6 +67,7 @@
     "parameters": {
       "Left": [
         "Uuid",
+        "Uuid",
         "Uuid"
       ]
     },
@@ -85,5 +86,5 @@
       false
     ]
   },
-  "hash": "0fd99b5f4fb4296d92783a8f2f5fc26ea9db6faf05533cc81c1447ca506535db"
+  "hash": "9b763ef0267524658b8ed5c73f6bf0d2e48976fabd4724b66b0209318e519357"
 }
