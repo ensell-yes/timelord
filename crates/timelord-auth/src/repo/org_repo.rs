@@ -64,8 +64,8 @@ pub async fn add_member<'e>(
     Ok(member)
 }
 
-pub async fn get_member_role(
-    pool: &PgPool,
+pub async fn get_member_role<'e>(
+    executor: impl sqlx::PgExecutor<'e>,
     org_id: Uuid,
     user_id: Uuid,
 ) -> Result<Option<OrgRole>, AppError> {
@@ -74,14 +74,14 @@ pub async fn get_member_role(
         org_id,
         user_id
     )
-    .fetch_optional(pool)
+    .fetch_optional(executor)
     .await?;
     Ok(row.map(|r| r.role))
 }
 
 /// List all members of an org with their user info.
-pub async fn list_org_members(
-    pool: &PgPool,
+pub async fn list_org_members<'e>(
+    executor: impl sqlx::PgExecutor<'e>,
     org_id: Uuid,
 ) -> Result<Vec<serde_json::Value>, AppError> {
     let rows = sqlx::query!(
@@ -95,7 +95,7 @@ pub async fn list_org_members(
         "#,
         org_id
     )
-    .fetch_all(pool)
+    .fetch_all(executor)
     .await?;
 
     Ok(rows

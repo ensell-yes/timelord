@@ -172,15 +172,19 @@ pub async fn list_users(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let claims = decode_jwt(&state, &auth)?;
 
-    // Require org owner/admin
-    let caller_role = org_repo::get_member_role(&state.pool, claims.org, claims.sub)
+    let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, claims.org).await.map_err(AppError::internal)?;
+
+    let caller_role = org_repo::get_member_role(&mut *tx, claims.org, claims.sub)
         .await?
         .ok_or(AppError::Forbidden)?;
     if !matches!(caller_role, OrgRole::Owner | OrgRole::Admin) {
         return Err(AppError::Forbidden);
     }
 
-    let members = org_repo::list_org_members(&state.pool, claims.org).await?;
+    let members = org_repo::list_org_members(&mut *tx, claims.org).await?;
+    tx.commit().await.map_err(AppError::internal)?;
+
     Ok(Json(serde_json::json!({ "members": members })))
 }
 
@@ -199,15 +203,6 @@ pub async fn add_member(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let claims = decode_jwt(&state, &auth)?;
 
-    // Verify caller is admin/owner of target org
-    let caller_role = org_repo::get_member_role(&state.pool, org_id, claims.sub)
-        .await?
-        .ok_or(AppError::Forbidden)?;
-
-    if !matches!(caller_role, OrgRole::Owner | OrgRole::Admin) {
-        return Err(AppError::Forbidden);
-    }
-
     let role = match body.role.as_str() {
         "owner" => OrgRole::Owner,
         "admin" => OrgRole::Admin,
@@ -217,6 +212,14 @@ pub async fn add_member(
 
     let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
     db::set_rls_context(&mut tx, org_id).await.map_err(AppError::internal)?;
+
+    // Verify caller is admin/owner of target org (inside RLS transaction)
+    let caller_role = org_repo::get_member_role(&mut *tx, org_id, claims.sub)
+        .await?
+        .ok_or(AppError::Forbidden)?;
+    if !matches!(caller_role, OrgRole::Owner | OrgRole::Admin) {
+        return Err(AppError::Forbidden);
+    }
 
     let member = org_repo::add_member(&mut *tx, org_id, body.user_id, role).await?;
 
@@ -252,13 +255,6 @@ pub async fn change_role(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let claims = decode_jwt(&state, &auth)?;
 
-    let caller_role = org_repo::get_member_role(&state.pool, claims.org, claims.sub)
-        .await?
-        .ok_or(AppError::Forbidden)?;
-    if !matches!(caller_role, OrgRole::Owner | OrgRole::Admin) {
-        return Err(AppError::Forbidden);
-    }
-
     let role = match body.role.as_str() {
         "owner" => OrgRole::Owner,
         "admin" => OrgRole::Admin,
@@ -268,6 +264,13 @@ pub async fn change_role(
 
     let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
     db::set_rls_context(&mut tx, claims.org).await.map_err(AppError::internal)?;
+
+    let caller_role = org_repo::get_member_role(&mut *tx, claims.org, claims.sub)
+        .await?
+        .ok_or(AppError::Forbidden)?;
+    if !matches!(caller_role, OrgRole::Owner | OrgRole::Admin) {
+        return Err(AppError::Forbidden);
+    }
 
     let member = org_repo::add_member(&mut *tx, claims.org, user_id, role).await?;
 
@@ -301,15 +304,15 @@ pub async fn remove_user(
         return Err(AppError::BadRequest("Cannot remove yourself".into()));
     }
 
-    let caller_role = org_repo::get_member_role(&state.pool, claims.org, claims.sub)
+    let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, claims.org).await.map_err(AppError::internal)?;
+
+    let caller_role = org_repo::get_member_role(&mut *tx, claims.org, claims.sub)
         .await?
         .ok_or(AppError::Forbidden)?;
     if !matches!(caller_role, OrgRole::Owner | OrgRole::Admin) {
         return Err(AppError::Forbidden);
     }
-
-    let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
-    db::set_rls_context(&mut tx, claims.org).await.map_err(AppError::internal)?;
 
     org_repo::remove_member(&mut *tx, claims.org, user_id).await?;
 
