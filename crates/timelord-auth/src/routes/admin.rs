@@ -74,15 +74,21 @@ pub async fn create_user(
         let hash = password::hash_password(password)?;
         user_repo::create_local_user(&mut *tx, &email, display_name, &hash, false).await?
     } else {
-        // OAuth pre-provision
+        // OAuth pre-provision — validate provider is google or microsoft
         let provider = body
             .provider
             .as_deref()
             .ok_or_else(|| AppError::BadRequest("provider required for OAuth pre-provision".into()))?;
+        if !matches!(provider, "google" | "microsoft") {
+            return Err(AppError::BadRequest("provider must be 'google' or 'microsoft'".into()));
+        }
         let provider_sub = body
             .provider_sub
             .as_deref()
             .ok_or_else(|| AppError::BadRequest("provider_sub required for OAuth pre-provision".into()))?;
+        if provider_sub.is_empty() {
+            return Err(AppError::BadRequest("provider_sub must not be empty".into()));
+        }
         user_repo::upsert(&mut *tx, provider, provider_sub, &email, display_name, None).await?
     };
 
