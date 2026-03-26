@@ -25,6 +25,9 @@ pub enum AppError {
     #[error("Internal error: {0}")]
     Internal(String),
 
+    #[error("Sync token invalidated by provider")]
+    SyncTokenInvalid,
+
     #[error(transparent)]
     Database(#[from] sqlx::Error),
 
@@ -44,7 +47,7 @@ impl AppError {
             AppError::Forbidden => (StatusCode::FORBIDDEN, "FORBIDDEN"),
             AppError::BadRequest(_) => (StatusCode::BAD_REQUEST, "BAD_REQUEST"),
             AppError::Conflict(_) => (StatusCode::CONFLICT, "CONFLICT"),
-            AppError::Internal(_) | AppError::Anyhow(_) => {
+            AppError::Internal(_) | AppError::Anyhow(_) | AppError::SyncTokenInvalid => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR")
             }
             AppError::Database(e) => {
@@ -64,7 +67,10 @@ impl IntoResponse for AppError {
 
         // Don't leak internal error details to clients
         let message = match &self {
-            AppError::Internal(_) | AppError::Anyhow(_) | AppError::Database(_) => {
+            AppError::Internal(_)
+            | AppError::Anyhow(_)
+            | AppError::Database(_)
+            | AppError::SyncTokenInvalid => {
                 tracing::error!(error = %self, "internal error");
                 "An internal error occurred".to_string()
             }
@@ -91,6 +97,9 @@ impl From<AppError> for tonic::Status {
             AppError::BadRequest(msg) => tonic::Status::invalid_argument(msg),
             AppError::Conflict(msg) => tonic::Status::already_exists(msg),
             AppError::Internal(msg) => tonic::Status::internal(msg),
+            AppError::SyncTokenInvalid => {
+                tonic::Status::failed_precondition("Sync token invalidated")
+            }
             AppError::Database(e) => tonic::Status::internal(e.to_string()),
             AppError::Anyhow(e) => tonic::Status::internal(e.to_string()),
         }

@@ -12,6 +12,7 @@ use crate::{
 };
 use timelord_common::{
     audit::{insert_audit, AuditEntry},
+    db,
     error::AppError,
     provider_token, token_encryption::TokenEncryptor, token_refresh,
 };
@@ -53,14 +54,17 @@ pub async fn run_sync_loop(
                     error = %e,
                     "sync failed for calendar"
                 );
-                // Record error in sync_state (best-effort)
-                if let Ok(mut conn) = pool.acquire().await {
-                    let _ = sync_state_repo::record_error(
-                        &mut conn,
-                        item.calendar_id,
-                        &e.to_string(),
-                    )
-                    .await;
+                // Record error in sync_state with RLS context (best-effort)
+                if let Ok(mut tx) = pool.begin().await {
+                    if db::set_rls_context(&mut tx, item.org_id).await.is_ok() {
+                        let _ = sync_state_repo::record_error(
+                            &mut tx,
+                            item.calendar_id,
+                            &e.to_string(),
+                        )
+                        .await;
+                        let _ = tx.commit().await;
+                    }
                 }
             }
         }
@@ -79,44 +83,34 @@ async fn sync_one_calendar(
     let access_token = acquire_access_token(pool, http, encryptor, config, item).await?;
 
     // --- Event fetch (outside any transaction) ---
-    let sync_result = fetch_events(http, &access_token, item).await;
-
-    // Handle 410 Gone (sync token invalid) — clear token and skip this iteration
-    let sync_result = match sync_result {
+    let sync_result = match fetch_events(http, &access_token, item).await {
         Ok(r) => r,
-        Err(e) if e.to_string().contains("SYNC_TOKEN_INVALID") => {
+        Err(AppError::SyncTokenInvalid) => {
             tracing::warn!(
                 calendar_id = %item.calendar_id,
                 "sync token invalidated, clearing for full re-sync next iteration"
             );
-            let mut conn = pool.acquire().await.map_err(AppError::internal)?;
-            sync_state_repo::clear_sync_token(&mut conn, item.calendar_id).await?;
+            let mut tx = pool.begin().await.map_err(AppError::internal)?;
+            db::set_rls_context(&mut tx, item.org_id).await.map_err(AppError::internal)?;
+            sync_state_repo::clear_sync_token(&mut tx, item.calendar_id).await?;
+            tx.commit().await.map_err(AppError::internal)?;
             return Ok(());
         }
         Err(e) => return Err(e),
     };
 
     // --- Upsert (transaction with RLS context) ---
-    let created = 0u32;
-    let mut updated = 0u32;
+    let mut mutations = 0u32;
     let mut cancelled = 0u32;
 
     let mut tx = pool.begin().await.map_err(AppError::internal)?;
-    sqlx::query(&format!(
-        "SET LOCAL app.current_org_id = '{}'",
-        item.org_id
-    ))
-    .execute(&mut *tx)
-    .await
-    .map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, item.org_id).await.map_err(AppError::internal)?;
 
     for event in &sync_result.events {
         if event.status == "cancelled" {
             cancelled += 1;
         } else {
-            // We can't easily distinguish insert vs update without extra logic,
-            // so count all non-cancelled as "updated" for the audit summary.
-            updated += 1;
+            mutations += 1;
         }
         event_repo::upsert_event(&mut tx, item.org_id, item.calendar_id, event).await?;
     }
@@ -132,15 +126,14 @@ async fn sync_one_calendar(
 
     tx.commit().await.map_err(AppError::internal)?;
 
-    // Audit (best-effort, after commit)
+    // Audit after commit (fire-and-forget, uses pool directly)
     if !sync_result.events.is_empty() {
         insert_audit(
             pool,
             AuditEntry::new(item.org_id, "sync", "calendar")
                 .entity(item.calendar_id)
                 .meta(serde_json::json!({
-                    "created": created,
-                    "updated": updated,
+                    "mutations": mutations,
                     "cancelled": cancelled,
                     "total": sync_result.events.len(),
                 })),
@@ -148,9 +141,9 @@ async fn sync_one_calendar(
         .await;
     }
 
-    // Publish NATS events
-    if updated > 0 || created > 0 {
-        publish_nats(nats, item, "synced", updated + created).await;
+    // Publish NATS events (after commit)
+    if mutations > 0 {
+        publish_nats(nats, item, "synced", mutations).await;
     }
     if cancelled > 0 {
         publish_nats(nats, item, "cancelled", cancelled).await;
@@ -189,9 +182,33 @@ async fn acquire_access_token(
         return encryptor.decrypt(&token.access_token_enc, access_nonce);
     }
 
-    // Expired — refresh with lock
-    let refresh_nonce = &token.token_nonce[12..];
-    let refresh_token_plain = encryptor.decrypt(&token.refresh_token_enc, refresh_nonce)?;
+    // Expired — lock row, re-check, and refresh if still expired
+    let mut tx = pool.begin().await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, item.org_id).await.map_err(AppError::internal)?;
+
+    let locked = provider_token::find_for_user_locked(&mut tx, item.user_id, &item.provider)
+        .await?
+        .ok_or_else(|| {
+            AppError::internal(format!(
+                "Provider token disappeared for user {} provider {}",
+                item.user_id, item.provider
+            ))
+        })?;
+
+    // Re-check expiry after acquiring lock — another worker may have refreshed
+    if locked.expires_at > Utc::now() {
+        let nonce = &locked.token_nonce[..12];
+        let decrypted = encryptor.decrypt(&locked.access_token_enc, nonce)?;
+        tx.commit().await.map_err(AppError::internal)?;
+        return Ok(decrypted);
+    }
+
+    // Still expired — perform refresh
+    let refresh_nonce = &locked.token_nonce[12..];
+    let refresh_token_plain = encryptor.decrypt(&locked.refresh_token_enc, refresh_nonce)?;
+
+    // Release the lock before the HTTP call (commit tx), refresh, then re-lock to update
+    tx.commit().await.map_err(AppError::internal)?;
 
     let result = match item.provider.as_str() {
         "google" => {
@@ -221,7 +238,7 @@ async fn acquire_access_token(
         }
     };
 
-    // Re-encrypt and update in locked transaction
+    // Re-encrypt and update in a new locked transaction
     let new_refresh = result
         .refresh_token
         .as_deref()
@@ -233,27 +250,26 @@ async fn acquire_access_token(
     let new_expires_at = Utc::now() + chrono::Duration::seconds(result.expires_in_secs as i64);
 
     let mut tx = pool.begin().await.map_err(AppError::internal)?;
-    sqlx::query(&format!(
-        "SET LOCAL app.current_org_id = '{}'",
-        item.org_id
-    ))
-    .execute(&mut *tx)
-    .await
-    .map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, item.org_id).await.map_err(AppError::internal)?;
 
     let locked = provider_token::find_for_user_locked(&mut tx, item.user_id, &item.provider)
-        .await?;
-    if let Some(locked_token) = locked {
-        provider_token::update_tokens(
-            &mut tx,
-            locked_token.id,
-            &access_enc,
-            &refresh_enc,
-            &combined_nonce,
-            new_expires_at,
-        )
-        .await?;
-    }
+        .await?
+        .ok_or_else(|| {
+            AppError::internal(format!(
+                "Provider token disappeared during refresh for user {} provider {}",
+                item.user_id, item.provider
+            ))
+        })?;
+
+    provider_token::update_tokens(
+        &mut tx,
+        locked.id,
+        &access_enc,
+        &refresh_enc,
+        &combined_nonce,
+        new_expires_at,
+    )
+    .await?;
     tx.commit().await.map_err(AppError::internal)?;
 
     tracing::info!(

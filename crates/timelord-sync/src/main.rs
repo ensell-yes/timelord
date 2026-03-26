@@ -21,7 +21,9 @@ async fn main() -> anyhow::Result<()> {
 
     let config = config::Config::from_env()?;
     let pool = db::create_pool(&config.database_url).await?;
-    db::run_migrations(&pool, "crates/timelord-calendar/migrations").await?;
+    let migrations_path = std::env::var("MIGRATIONS_PATH")
+        .unwrap_or_else(|_| "crates/timelord-calendar/migrations".to_string());
+    db::run_migrations(&pool, &migrations_path).await?;
 
     let nats = async_nats::connect(&config.nats_url).await?;
     let http = reqwest::Client::new();

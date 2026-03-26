@@ -73,9 +73,8 @@ struct GoogleAttendee {
 /// Fetch events from Google Calendar, handling pagination.
 ///
 /// If `sync_token` is provided an incremental sync is performed.
-/// Returns `AppError::Internal` with message containing "SYNC_TOKEN_INVALID"
-/// when the server returns 410 Gone, signalling the caller should clear the
-/// token and perform a full re-sync.
+/// Returns `AppError::SyncTokenInvalid` when the server returns 410 Gone,
+/// signalling the caller should clear the token and perform a full re-sync.
 pub async fn fetch_google_events(
     http: &Client,
     access_token: &str,
@@ -115,9 +114,7 @@ pub async fn fetch_google_events(
         let status = resp.status();
 
         if status == reqwest::StatusCode::GONE {
-            return Err(AppError::internal(
-                "SYNC_TOKEN_INVALID: Google returned 410 Gone — sync token expired",
-            ));
+            return Err(AppError::SyncTokenInvalid);
         }
 
         if !status.is_success() {

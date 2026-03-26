@@ -5,6 +5,7 @@ use std::sync::Arc;
 use crate::services::{provider_client, AppState};
 use timelord_common::{
     auth_claims::Claims,
+    db,
     error::AppError,
     provider_token,
     token_refresh,
@@ -26,7 +27,7 @@ pub async fn list_provider_calendars(
             None => continue,
         };
 
-        let access_token = get_valid_access_token(&state, &token, provider).await?;
+        let access_token = get_valid_access_token(&state, &token, provider, claims.org).await?;
 
         let calendars = match *provider {
             "google" => {
@@ -60,23 +61,45 @@ pub async fn list_provider_calendars(
 }
 
 /// Get a valid (non-expired) access token, refreshing if needed.
-/// If refresh is required, uses FOR UPDATE locking in a short transaction.
+/// If refresh is required, locks the row in a short transaction,
+/// re-checks expiry (another worker may have refreshed), then refreshes.
 async fn get_valid_access_token(
     state: &AppState,
     token: &timelord_common::provider_token::ProviderToken,
     provider: &str,
+    org_id: uuid::Uuid,
 ) -> Result<String, AppError> {
-    // Separate nonces: access_nonce (12 bytes) || refresh_nonce (12 bytes)
     let access_nonce = &token.token_nonce[..12];
 
     if token.expires_at > Utc::now() {
-        // Token is still valid — decrypt and return without locking
         return state.encryptor.decrypt(&token.access_token_enc, access_nonce);
     }
 
-    // Token expired — lock row and refresh
-    let refresh_nonce = &token.token_nonce[12..];
-    let refresh_token_plain = state.encryptor.decrypt(&token.refresh_token_enc, refresh_nonce)?;
+    // Token expired — lock row and re-check (TOCTOU: another request may have refreshed)
+    let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, org_id).await.map_err(AppError::internal)?;
+
+    let locked = provider_token::find_for_user_locked(&mut tx, token.user_id, provider)
+        .await?
+        .ok_or_else(|| {
+            AppError::internal(format!(
+                "Provider token disappeared for user {} provider {provider}",
+                token.user_id
+            ))
+        })?;
+
+    // Re-check expiry after acquiring lock
+    if locked.expires_at > Utc::now() {
+        let nonce = &locked.token_nonce[..12];
+        let decrypted = state.encryptor.decrypt(&locked.access_token_enc, nonce)?;
+        tx.commit().await.map_err(AppError::internal)?;
+        return Ok(decrypted);
+    }
+
+    // Still expired — decrypt refresh token, release lock, then call provider
+    let refresh_nonce = &locked.token_nonce[12..];
+    let refresh_token_plain = state.encryptor.decrypt(&locked.refresh_token_enc, refresh_nonce)?;
+    tx.commit().await.map_err(AppError::internal)?;
 
     let result = match provider {
         "google" => {
@@ -101,7 +124,7 @@ async fn get_valid_access_token(
         _ => return Err(AppError::internal(format!("Unknown provider: {provider}"))),
     };
 
-    // Re-encrypt and update in a locked transaction
+    // Re-encrypt and update in a new locked transaction
     let new_refresh = result.refresh_token.as_deref().unwrap_or(&refresh_token_plain);
     let (access_enc, access_nonce_new) = state.encryptor.encrypt(&result.access_token)?;
     let (refresh_enc, refresh_nonce_new) = state.encryptor.encrypt(new_refresh)?;
@@ -110,19 +133,26 @@ async fn get_valid_access_token(
     let new_expires_at = Utc::now() + chrono::Duration::seconds(result.expires_in_secs as i64);
 
     let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
-    // Lock the row to prevent concurrent refresh races
-    let locked = provider_token::find_for_user_locked(&mut tx, token.user_id, provider).await?;
-    if let Some(locked_token) = locked {
-        provider_token::update_tokens(
-            &mut tx,
-            locked_token.id,
-            &access_enc,
-            &refresh_enc,
-            &combined_nonce,
-            new_expires_at,
-        )
-        .await?;
-    }
+    db::set_rls_context(&mut tx, org_id).await.map_err(AppError::internal)?;
+
+    let locked = provider_token::find_for_user_locked(&mut tx, token.user_id, provider)
+        .await?
+        .ok_or_else(|| {
+            AppError::internal(format!(
+                "Provider token disappeared during refresh for user {} provider {provider}",
+                token.user_id
+            ))
+        })?;
+
+    provider_token::update_tokens(
+        &mut tx,
+        locked.id,
+        &access_enc,
+        &refresh_enc,
+        &combined_nonce,
+        new_expires_at,
+    )
+    .await?;
     tx.commit().await.map_err(AppError::internal)?;
 
     Ok(result.access_token)
