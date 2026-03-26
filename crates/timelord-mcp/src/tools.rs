@@ -2,9 +2,8 @@ use std::sync::Arc;
 
 use chrono::{Duration, Utc};
 use rmcp::{
-    ServerHandler,
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
-    tool, tool_handler, tool_router,
+    tool, tool_handler, tool_router, ServerHandler,
 };
 use serde::Deserialize;
 use sqlx::PgPool;
@@ -79,7 +78,9 @@ impl TimelordTools {
     }
 
     /// List events in a time range with optional calendar filter.
-    #[tool(description = "List events in a time range. Params: time_min, time_max (ISO 8601), calendar_id (optional UUID)")]
+    #[tool(
+        description = "List events in a time range. Params: time_min, time_max (ISO 8601), calendar_id (optional UUID)"
+    )]
     async fn list_events(&self, params: Parameters<ListEventsParams>) -> String {
         let (org_id, user_id) = match self.get_context() {
             Ok(ctx) => ctx,
@@ -108,7 +109,9 @@ impl TimelordTools {
     }
 
     /// Search events by title with optional time range.
-    #[tool(description = "Search events by title. Params: query (required), time_min, time_max (optional ISO 8601)")]
+    #[tool(
+        description = "Search events by title. Params: query (required), time_min, time_max (optional ISO 8601)"
+    )]
     async fn search_events(&self, params: Parameters<SearchEventsParams>) -> String {
         let (org_id, user_id) = match self.get_context() {
             Ok(ctx) => ctx,

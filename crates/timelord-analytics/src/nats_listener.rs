@@ -64,16 +64,30 @@ async fn update_snapshot(pool: &PgPool, org_id: Uuid, user_id: Uuid) -> Result<(
     let metrics = serde_json::to_value(&report).unwrap_or_default();
 
     let mut tx = pool.begin().await.map_err(AppError::internal)?;
-    db::set_rls_context(&mut tx, org_id).await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, org_id)
+        .await
+        .map_err(AppError::internal)?;
 
-    repo::upsert_snapshot(&mut *tx, org_id, user_id, today, report.health_score, &metrics).await?;
+    repo::upsert_snapshot(
+        &mut *tx,
+        org_id,
+        user_id,
+        today,
+        report.health_score,
+        &metrics,
+    )
+    .await?;
     tx.commit().await.map_err(AppError::internal)?;
 
     Ok(())
 }
 
 /// Resolve user_id from a calendar_id by querying calendars.user_id.
-async fn resolve_user_from_calendar(pool: &PgPool, org_id: Uuid, calendar_id: Uuid) -> Option<Uuid> {
+async fn resolve_user_from_calendar(
+    pool: &PgPool,
+    org_id: Uuid,
+    calendar_id: Uuid,
+) -> Option<Uuid> {
     let row = sqlx::query!(
         "SELECT user_id FROM calendars WHERE org_id = $1 AND id = $2",
         org_id,

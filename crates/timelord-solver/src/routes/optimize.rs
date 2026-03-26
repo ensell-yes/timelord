@@ -21,12 +21,8 @@ pub async fn optimize(
     Extension(claims): Extension<Claims>,
     Json(body): Json<OptimizeRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let work_start = parse_time(
-        body.working_hours_start.as_deref().unwrap_or("09:00"),
-    )?;
-    let work_end = parse_time(
-        body.working_hours_end.as_deref().unwrap_or("17:00"),
-    )?;
+    let work_start = parse_time(body.working_hours_start.as_deref().unwrap_or("09:00"))?;
+    let work_end = parse_time(body.working_hours_end.as_deref().unwrap_or("17:00"))?;
 
     let solver_config = SolverConfig {
         window_start: body.window_start,
@@ -39,7 +35,9 @@ pub async fn optimize(
 
     // Create optimization run record
     let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
-    db::set_rls_context(&mut tx, claims.org).await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, claims.org)
+        .await
+        .map_err(AppError::internal)?;
 
     let run_config = serde_json::json!({
         "work_start": work_start.to_string(),
@@ -61,7 +59,9 @@ pub async fn optimize(
 
     // Fetch events
     let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
-    db::set_rls_context(&mut tx, claims.org).await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, claims.org)
+        .await
+        .map_err(AppError::internal)?;
 
     let events = event_repo::list_for_optimization(
         &mut *tx,
@@ -78,15 +78,15 @@ pub async fn optimize(
 
     // Store results
     let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
-    db::set_rls_context(&mut tx, claims.org).await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, claims.org)
+        .await
+        .map_err(AppError::internal)?;
 
     let metrics_json = serde_json::to_value(&result.metrics).unwrap_or_default();
     run_repo::complete(&mut *tx, run.id, &metrics_json).await?;
 
-    let suggestions = suggestion_repo::bulk_create(
-        &mut tx, run.id, claims.org, &result.suggestions,
-    )
-    .await?;
+    let suggestions =
+        suggestion_repo::bulk_create(&mut tx, run.id, claims.org, &result.suggestions).await?;
 
     insert_audit(
         &mut *tx,

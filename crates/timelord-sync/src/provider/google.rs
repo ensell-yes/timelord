@@ -6,8 +6,7 @@ use timelord_common::error::AppError;
 
 use super::{SyncResult, UpsertEvent};
 
-const GOOGLE_CALENDAR_EVENTS_URL: &str =
-    "https://www.googleapis.com/calendar/v3/calendars";
+const GOOGLE_CALENDAR_EVENTS_URL: &str = "https://www.googleapis.com/calendar/v3/calendars";
 
 // ---------------------------------------------------------------------------
 // Google Calendar API response types
@@ -84,9 +83,7 @@ pub async fn fetch_google_events(
     calendar_id: &str,
     sync_token: Option<&str>,
 ) -> Result<SyncResult, AppError> {
-    let base_url = format!(
-        "{GOOGLE_CALENDAR_EVENTS_URL}/{calendar_id}/events"
-    );
+    let base_url = format!("{GOOGLE_CALENDAR_EVENTS_URL}/{calendar_id}/events");
 
     let mut all_events: Vec<UpsertEvent> = Vec::new();
     let mut page_token: Option<String> = None;
@@ -178,9 +175,7 @@ fn convert_google_event(ev: GoogleEvent) -> Result<UpsertEvent, AppError> {
     let (start_at, all_day) = parse_google_datetime(&start)?;
     let (end_at, _) = parse_google_datetime(&end)?;
 
-    let timezone = start
-        .time_zone
-        .unwrap_or_else(|| "UTC".to_string());
+    let timezone = start.time_zone.unwrap_or_else(|| "UTC".to_string());
 
     let visibility = match ev.visibility.as_deref() {
         Some("private") => "private".to_string(),
@@ -254,16 +249,17 @@ fn parse_google_datetime(dt: &GoogleDateTime) -> Result<(DateTime<Utc>, bool), A
         // RFC 3339 datetime — Google always includes the offset
         let parsed = DateTime::parse_from_rfc3339(date_time)
             .map_err(|e| {
-                AppError::internal(format!("Google datetime parse error: {e} (input: {date_time})"))
+                AppError::internal(format!(
+                    "Google datetime parse error: {e} (input: {date_time})"
+                ))
             })?
             .with_timezone(&Utc);
         Ok((parsed, false))
     } else if let Some(ref date) = dt.date {
         // All-day event — date only (YYYY-MM-DD)
-        let naive = NaiveDate::parse_from_str(date, "%Y-%m-%d")
-            .map_err(|e| {
-                AppError::internal(format!("Google date parse error: {e} (input: {date})"))
-            })?;
+        let naive = NaiveDate::parse_from_str(date, "%Y-%m-%d").map_err(|e| {
+            AppError::internal(format!("Google date parse error: {e} (input: {date})"))
+        })?;
         let datetime = naive
             .and_hms_opt(0, 0, 0)
             .ok_or_else(|| AppError::internal("Failed to build midnight datetime"))?;
@@ -327,10 +323,7 @@ mod tests {
             convert_test_event(Some("private".to_string())).visibility,
             "private"
         );
-        assert_eq!(
-            convert_test_event(None).visibility,
-            "public"
-        );
+        assert_eq!(convert_test_event(None).visibility, "public");
     }
 
     fn convert_test_event(visibility: Option<String>) -> UpsertEvent {

@@ -124,8 +124,7 @@ pub async fn callback(
         .ok_or(AppError::Unauthorized)?
         .to_string();
     let (_session, tokens) =
-        session_svc::create_session(&state.pool, &state.jwt, user.id, org_id, &role, None)
-            .await?;
+        session_svc::create_session(&state.pool, &state.jwt, user.id, org_id, &role, None).await?;
 
     insert_audit(
         &state.pool,

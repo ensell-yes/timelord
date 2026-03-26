@@ -64,9 +64,7 @@ pub async fn refresh_microsoft_token(
     tenant_id: &str,
     refresh_token: &str,
 ) -> Result<RefreshResult, AppError> {
-    let url = format!(
-        "https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
-    );
+    let url = format!("https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token");
 
     let resp = http
         .post(&url)

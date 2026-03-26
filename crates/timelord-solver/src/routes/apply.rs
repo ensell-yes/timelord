@@ -26,7 +26,9 @@ pub async fn apply(
 ) -> Result<Json<serde_json::Value>, AppError> {
     // Verify run exists and belongs to this org
     let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
-    db::set_rls_context(&mut tx, claims.org).await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, claims.org)
+        .await
+        .map_err(AppError::internal)?;
 
     let run = run_repo::find_by_id(&mut *tx, claims.org, run_id)
         .await?
@@ -48,7 +50,9 @@ pub async fn apply(
     // Apply each suggestion
     let mut applied = Vec::new();
     let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
-    db::set_rls_context(&mut tx, claims.org).await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, claims.org)
+        .await
+        .map_err(AppError::internal)?;
 
     for suggestion_id in &body.suggestion_ids {
         // mark_applied validates run_id + applied=false atomically in the query
@@ -101,7 +105,9 @@ pub async fn get_run(
     Path(run_id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
-    db::set_rls_context(&mut tx, claims.org).await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, claims.org)
+        .await
+        .map_err(AppError::internal)?;
 
     let run = run_repo::find_by_id(&mut *tx, claims.org, run_id)
         .await?

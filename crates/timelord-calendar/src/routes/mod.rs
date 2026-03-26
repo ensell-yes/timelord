@@ -3,7 +3,10 @@ pub mod events;
 pub mod health;
 pub mod provider;
 
-use axum::{routing::{get, post}, Router};
+use axum::{
+    routing::{get, post},
+    Router,
+};
 use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 
@@ -34,10 +37,7 @@ pub async fn serve(state: Arc<AppState>) -> anyhow::Result<()> {
             get(events::get_one).delete(events::delete_one),
         )
         // Bulk import calendars from provider listing
-        .route(
-            "/api/v1/calendars/import",
-            post(calendars::import),
-        )
+        .route("/api/v1/calendars/import", post(calendars::import))
         // Provider calendar listing (fetches live from Google/Microsoft)
         .route(
             "/api/v1/provider/calendars",

@@ -14,7 +14,9 @@ use timelord_common::{
     audit::{insert_audit, AuditEntry},
     db,
     error::AppError,
-    provider_token, token_encryption::TokenEncryptor, token_refresh,
+    provider_token,
+    token_encryption::TokenEncryptor,
+    token_refresh,
 };
 
 pub async fn run_sync_loop(
@@ -43,10 +45,7 @@ pub async fn run_sync_loop(
         };
 
         for item in &work_items {
-            if let Err(e) = sync_one_calendar(
-                &pool, &nats, &http, &encryptor, &config, item,
-            )
-            .await
+            if let Err(e) = sync_one_calendar(&pool, &nats, &http, &encryptor, &config, item).await
             {
                 tracing::warn!(
                     calendar_id = %item.calendar_id,
@@ -92,7 +91,9 @@ async fn sync_one_calendar(
                 "sync token invalidated, clearing for full re-sync next iteration"
             );
             let mut tx = pool.begin().await.map_err(AppError::internal)?;
-            db::set_rls_context(&mut tx, item.org_id).await.map_err(AppError::internal)?;
+            db::set_rls_context(&mut tx, item.org_id)
+                .await
+                .map_err(AppError::internal)?;
             sync_state_repo::clear_sync_token(&mut tx, item.org_id, item.calendar_id).await?;
             tx.commit().await.map_err(AppError::internal)?;
             return Ok(());
@@ -105,7 +106,9 @@ async fn sync_one_calendar(
     let mut cancelled = 0u32;
 
     let mut tx = pool.begin().await.map_err(AppError::internal)?;
-    db::set_rls_context(&mut tx, item.org_id).await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, item.org_id)
+        .await
+        .map_err(AppError::internal)?;
 
     for event in &sync_result.events {
         if event.status == "cancelled" {
@@ -170,7 +173,9 @@ async fn acquire_access_token(
 ) -> Result<String, AppError> {
     // Always read inside a transaction with RLS context
     let mut tx = pool.begin().await.map_err(AppError::internal)?;
-    db::set_rls_context(&mut tx, item.org_id).await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, item.org_id)
+        .await
+        .map_err(AppError::internal)?;
 
     let token = provider_token::find_for_user_locked(&mut tx, item.user_id, &item.provider)
         .await?
@@ -233,7 +238,9 @@ async fn acquire_access_token(
     let new_expires_at = Utc::now() + chrono::Duration::seconds(result.expires_in_secs as i64);
 
     let mut tx = pool.begin().await.map_err(AppError::internal)?;
-    db::set_rls_context(&mut tx, item.org_id).await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, item.org_id)
+        .await
+        .map_err(AppError::internal)?;
 
     let locked = provider_token::find_for_user_locked(&mut tx, item.user_id, &item.provider)
         .await?

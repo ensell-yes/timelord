@@ -27,9 +27,9 @@ async fn main() -> anyhow::Result<()> {
 
     let nats = async_nats::connect(&config.nats_url).await?;
     let http = reqwest::Client::new();
-    let encryptor = Arc::new(
-        timelord_common::token_encryption::TokenEncryptor::new(&config.encryption_key)?,
-    );
+    let encryptor = Arc::new(timelord_common::token_encryption::TokenEncryptor::new(
+        &config.encryption_key,
+    )?);
     let config = Arc::new(config);
 
     // Start sync loop in background

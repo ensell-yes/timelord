@@ -75,19 +75,21 @@ pub async fn create_user(
         user_repo::create_local_user(&mut *tx, &email, display_name, &hash, false).await?
     } else {
         // OAuth pre-provision — validate provider is google or microsoft
-        let provider = body
-            .provider
-            .as_deref()
-            .ok_or_else(|| AppError::BadRequest("provider required for OAuth pre-provision".into()))?;
+        let provider = body.provider.as_deref().ok_or_else(|| {
+            AppError::BadRequest("provider required for OAuth pre-provision".into())
+        })?;
         if !matches!(provider, "google" | "microsoft") {
-            return Err(AppError::BadRequest("provider must be 'google' or 'microsoft'".into()));
+            return Err(AppError::BadRequest(
+                "provider must be 'google' or 'microsoft'".into(),
+            ));
         }
-        let provider_sub = body
-            .provider_sub
-            .as_deref()
-            .ok_or_else(|| AppError::BadRequest("provider_sub required for OAuth pre-provision".into()))?;
+        let provider_sub = body.provider_sub.as_deref().ok_or_else(|| {
+            AppError::BadRequest("provider_sub required for OAuth pre-provision".into())
+        })?;
         if provider_sub.is_empty() {
-            return Err(AppError::BadRequest("provider_sub must not be empty".into()));
+            return Err(AppError::BadRequest(
+                "provider_sub must not be empty".into(),
+            ));
         }
         user_repo::upsert(&mut *tx, provider, provider_sub, &email, display_name, None).await?
     };
@@ -95,14 +97,18 @@ pub async fn create_user(
     // Org provisioning
     let org_id = if let Some(org_id) = body.org_id {
         // Add to existing org
-        db::set_rls_context(&mut tx, org_id).await.map_err(AppError::internal)?;
+        db::set_rls_context(&mut tx, org_id)
+            .await
+            .map_err(AppError::internal)?;
         org_repo::add_member(&mut *tx, org_id, user.id, OrgRole::Member).await?;
         org_id
     } else {
         // Create personal org
         let slug = format!("personal-{}", &user.id.to_string()[..8]);
         let org = org_repo::create(&mut *tx, "Personal", &slug, true).await?;
-        db::set_rls_context(&mut tx, org.id).await.map_err(AppError::internal)?;
+        db::set_rls_context(&mut tx, org.id)
+            .await
+            .map_err(AppError::internal)?;
         org_repo::add_member(&mut *tx, org.id, user.id, OrgRole::Owner).await?;
         org.id
     };
@@ -144,7 +150,9 @@ pub async fn create_org(
     let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
     let org = org_repo::create(&mut *tx, &body.name, &body.slug, false).await?;
 
-    db::set_rls_context(&mut tx, org.id).await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, org.id)
+        .await
+        .map_err(AppError::internal)?;
 
     insert_audit(
         &mut *tx,
@@ -173,7 +181,9 @@ pub async fn list_users(
     let claims = decode_jwt(&state, &auth)?;
 
     let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
-    db::set_rls_context(&mut tx, claims.org).await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, claims.org)
+        .await
+        .map_err(AppError::internal)?;
 
     let caller_role = org_repo::get_member_role(&mut *tx, claims.org, claims.sub)
         .await?
@@ -207,11 +217,17 @@ pub async fn add_member(
         "owner" => OrgRole::Owner,
         "admin" => OrgRole::Admin,
         "member" => OrgRole::Member,
-        _ => return Err(AppError::BadRequest("role must be owner, admin, or member".into())),
+        _ => {
+            return Err(AppError::BadRequest(
+                "role must be owner, admin, or member".into(),
+            ))
+        }
     };
 
     let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
-    db::set_rls_context(&mut tx, org_id).await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, org_id)
+        .await
+        .map_err(AppError::internal)?;
 
     // Verify caller is admin/owner of target org (inside RLS transaction)
     let caller_role = org_repo::get_member_role(&mut *tx, org_id, claims.sub)
@@ -259,11 +275,17 @@ pub async fn change_role(
         "owner" => OrgRole::Owner,
         "admin" => OrgRole::Admin,
         "member" => OrgRole::Member,
-        _ => return Err(AppError::BadRequest("role must be owner, admin, or member".into())),
+        _ => {
+            return Err(AppError::BadRequest(
+                "role must be owner, admin, or member".into(),
+            ))
+        }
     };
 
     let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
-    db::set_rls_context(&mut tx, claims.org).await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, claims.org)
+        .await
+        .map_err(AppError::internal)?;
 
     let caller_role = org_repo::get_member_role(&mut *tx, claims.org, claims.sub)
         .await?
@@ -305,7 +327,9 @@ pub async fn remove_user(
     }
 
     let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
-    db::set_rls_context(&mut tx, claims.org).await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, claims.org)
+        .await
+        .map_err(AppError::internal)?;
 
     let caller_role = org_repo::get_member_role(&mut *tx, claims.org, claims.sub)
         .await?

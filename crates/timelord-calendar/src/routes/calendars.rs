@@ -80,7 +80,9 @@ pub async fn import(
     Json(body): Json<ImportRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), AppError> {
     let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
-    db::set_rls_context(&mut tx, claims.org).await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, claims.org)
+        .await
+        .map_err(AppError::internal)?;
 
     let mut created = Vec::new();
 
@@ -119,5 +121,8 @@ pub async fn import(
             .await;
     }
 
-    Ok((StatusCode::CREATED, Json(serde_json::json!({ "calendars": created }))))
+    Ok((
+        StatusCode::CREATED,
+        Json(serde_json::json!({ "calendars": created })),
+    ))
 }

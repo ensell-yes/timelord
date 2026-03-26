@@ -59,14 +59,17 @@ pub async fn list_calendars(
     .fetch_all(pool)
     .await?;
 
-    Ok(rows.into_iter().map(|r| CalendarInfo {
-        id: r.id,
-        provider: r.provider,
-        name: r.name,
-        timezone: r.timezone,
-        sync_enabled: r.sync_enabled,
-        last_synced_at: r.last_synced_at,
-    }).collect())
+    Ok(rows
+        .into_iter()
+        .map(|r| CalendarInfo {
+            id: r.id,
+            provider: r.provider,
+            name: r.name,
+            timezone: r.timezone,
+            sync_enabled: r.sync_enabled,
+            last_synced_at: r.last_synced_at,
+        })
+        .collect())
 }
 
 pub async fn list_events(
@@ -102,18 +105,21 @@ pub async fn list_events(
     .fetch_all(pool)
     .await?;
 
-    Ok(rows.into_iter().map(|r| EventInfo {
-        id: r.id,
-        calendar_name: r.calendar_name,
-        title: r.title,
-        start_at: r.start_at,
-        end_at: r.end_at,
-        all_day: r.all_day,
-        is_movable: r.is_movable,
-        is_heads_down: r.is_heads_down,
-        status: r.status,
-        attendee_count: r.attendee_count,
-    }).collect())
+    Ok(rows
+        .into_iter()
+        .map(|r| EventInfo {
+            id: r.id,
+            calendar_name: r.calendar_name,
+            title: r.title,
+            start_at: r.start_at,
+            end_at: r.end_at,
+            all_day: r.all_day,
+            is_movable: r.is_movable,
+            is_heads_down: r.is_heads_down,
+            status: r.status,
+            attendee_count: r.attendee_count,
+        })
+        .collect())
 }
 
 pub async fn search_events(
@@ -151,18 +157,21 @@ pub async fn search_events(
     .fetch_all(pool)
     .await?;
 
-    Ok(rows.into_iter().map(|r| EventInfo {
-        id: r.id,
-        calendar_name: r.calendar_name,
-        title: r.title,
-        start_at: r.start_at,
-        end_at: r.end_at,
-        all_day: r.all_day,
-        is_movable: r.is_movable,
-        is_heads_down: r.is_heads_down,
-        status: r.status,
-        attendee_count: r.attendee_count,
-    }).collect())
+    Ok(rows
+        .into_iter()
+        .map(|r| EventInfo {
+            id: r.id,
+            calendar_name: r.calendar_name,
+            title: r.title,
+            start_at: r.start_at,
+            end_at: r.end_at,
+            all_day: r.all_day,
+            is_movable: r.is_movable,
+            is_heads_down: r.is_heads_down,
+            status: r.status,
+            attendee_count: r.attendee_count,
+        })
+        .collect())
 }
 
 pub async fn get_pending_suggestions(
@@ -191,12 +200,15 @@ pub async fn get_pending_suggestions(
     .fetch_all(pool)
     .await?;
 
-    Ok(rows.into_iter().map(|r| SuggestionInfo {
-        id: r.id,
-        event_title: r.event_title,
-        original_start: r.original_start,
-        suggested_start: r.suggested_start,
-        reason: r.reason,
-        applied: r.applied,
-    }).collect())
+    Ok(rows
+        .into_iter()
+        .map(|r| SuggestionInfo {
+            id: r.id,
+            event_title: r.event_title,
+            original_start: r.original_start,
+            suggested_start: r.suggested_start,
+            reason: r.reason,
+            applied: r.applied,
+        })
+        .collect())
 }

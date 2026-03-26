@@ -7,7 +7,10 @@ use timelord_auth::{
     repo::{org_repo, user_repo},
     services::password,
 };
-use timelord_common::{audit::{insert_audit, AuditEntry}, db};
+use timelord_common::{
+    audit::{insert_audit, AuditEntry},
+    db,
+};
 
 #[derive(Parser)]
 #[command(name = "timelord-cli", about = "Timelord administration CLI")]
@@ -52,14 +55,20 @@ async fn main() -> anyhow::Result<()> {
     timelord_common::telemetry::init("timelord-cli");
 
     let cli = Cli::parse();
-    let database_url = std::env::var("DATABASE_URL")
-        .map_err(|_| anyhow::anyhow!("DATABASE_URL not set. Run `timelord-cli init` first or set it in .env"))?;
+    let database_url = std::env::var("DATABASE_URL").map_err(|_| {
+        anyhow::anyhow!("DATABASE_URL not set. Run `timelord-cli init` first or set it in .env")
+    })?;
 
     let pool = db::create_pool(&database_url).await?;
     db::run_migrations(&pool, "crates/timelord-auth/migrations").await?;
 
     match cli.command {
-        Commands::CreateAdmin { email, password, name, force } => {
+        Commands::CreateAdmin {
+            email,
+            password,
+            name,
+            force,
+        } => {
             create_admin(&pool, &email, &password, name.as_deref(), force).await?;
         }
         Commands::ResetPassword { email, password } => {
@@ -155,11 +164,9 @@ async fn db_check(pool: &sqlx::PgPool) -> anyhow::Result<()> {
     println!("Database connection: OK (result={})", row);
 
     // Check migration status
-    let count = sqlx::query_scalar!(
-        r#"SELECT COUNT(*)::bigint AS "count!" FROM _sqlx_migrations"#
-    )
-    .fetch_one(pool)
-    .await?;
+    let count = sqlx::query_scalar!(r#"SELECT COUNT(*)::bigint AS "count!" FROM _sqlx_migrations"#)
+        .fetch_one(pool)
+        .await?;
     println!("Migrations applied: {}", count);
 
     // Check provider constraint includes 'local'
@@ -174,7 +181,11 @@ async fn db_check(pool: &sqlx::PgPool) -> anyhow::Result<()> {
     .await?;
     println!(
         "Provider constraint includes 'local': {}",
-        if has_local { "YES" } else { "NO — run migration 7" }
+        if has_local {
+            "YES"
+        } else {
+            "NO — run migration 7"
+        }
     );
 
     // Check system admin exists
@@ -185,7 +196,11 @@ async fn db_check(pool: &sqlx::PgPool) -> anyhow::Result<()> {
     .await?;
     println!(
         "System admin exists: {}",
-        if has_admin { "YES" } else { "NO — run `timelord-cli create-admin`" }
+        if has_admin {
+            "YES"
+        } else {
+            "NO — run `timelord-cli create-admin`"
+        }
     );
 
     Ok(())

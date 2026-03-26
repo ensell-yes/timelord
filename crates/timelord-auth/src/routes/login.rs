@@ -33,7 +33,9 @@ pub async fn login(
             let _: () = redis.expire(&rate_key, 60).await.unwrap_or_default();
         }
         if count > 5 {
-            return Err(AppError::BadRequest("Too many login attempts. Try again in 1 minute.".into()));
+            return Err(AppError::BadRequest(
+                "Too many login attempts. Try again in 1 minute.".into(),
+            ));
         }
     }
 
@@ -41,7 +43,10 @@ pub async fn login(
         .await?
         .ok_or(AppError::Unauthorized)?;
 
-    let hash = user.password_hash.as_deref().ok_or(AppError::Unauthorized)?;
+    let hash = user
+        .password_hash
+        .as_deref()
+        .ok_or(AppError::Unauthorized)?;
     if !password::verify_password(&body.password, hash)? {
         return Err(AppError::Unauthorized);
     }

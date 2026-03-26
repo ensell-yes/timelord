@@ -3,13 +3,7 @@ use chrono::Utc;
 use std::sync::Arc;
 
 use crate::services::{provider_client, AppState};
-use timelord_common::{
-    auth_claims::Claims,
-    db,
-    error::AppError,
-    provider_token,
-    token_refresh,
-};
+use timelord_common::{auth_claims::Claims, db, error::AppError, provider_token, token_refresh};
 
 /// List calendars directly from the connected provider (Google or Microsoft).
 /// Decrypts the stored provider access token, refreshes if expired, and calls
@@ -21,10 +15,11 @@ pub async fn list_provider_calendars(
     let mut all_calendars = Vec::new();
 
     for provider in &["google", "microsoft"] {
-        let access_token = match get_valid_access_token(&state, claims.sub, provider, claims.org).await? {
-            Some(t) => t,
-            None => continue,
-        };
+        let access_token =
+            match get_valid_access_token(&state, claims.sub, provider, claims.org).await? {
+                Some(t) => t,
+                None => continue,
+            };
 
         let calendars = match *provider {
             "google" => {
@@ -68,7 +63,9 @@ async fn get_valid_access_token(
 ) -> Result<Option<String>, AppError> {
     // Read token in a transaction with RLS context
     let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
-    db::set_rls_context(&mut tx, org_id).await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, org_id)
+        .await
+        .map_err(AppError::internal)?;
 
     let token = provider_token::find_for_user_locked(&mut tx, user_id, provider).await?;
     let token = match token {
@@ -81,14 +78,18 @@ async fn get_valid_access_token(
 
     if token.expires_at > Utc::now() {
         let access_nonce = &token.token_nonce[..12];
-        let decrypted = state.encryptor.decrypt(&token.access_token_enc, access_nonce)?;
+        let decrypted = state
+            .encryptor
+            .decrypt(&token.access_token_enc, access_nonce)?;
         tx.commit().await.map_err(AppError::internal)?;
         return Ok(Some(decrypted));
     }
 
     // Expired — decrypt refresh token, release lock before HTTP call
     let refresh_nonce = &token.token_nonce[12..];
-    let refresh_token_plain = state.encryptor.decrypt(&token.refresh_token_enc, refresh_nonce)?;
+    let refresh_token_plain = state
+        .encryptor
+        .decrypt(&token.refresh_token_enc, refresh_nonce)?;
     tx.commit().await.map_err(AppError::internal)?;
 
     let result = match provider {
@@ -115,7 +116,10 @@ async fn get_valid_access_token(
     };
 
     // Re-encrypt and update in a new locked transaction
-    let new_refresh = result.refresh_token.as_deref().unwrap_or(&refresh_token_plain);
+    let new_refresh = result
+        .refresh_token
+        .as_deref()
+        .unwrap_or(&refresh_token_plain);
     let (access_enc, access_nonce_new) = state.encryptor.encrypt(&result.access_token)?;
     let (refresh_enc, refresh_nonce_new) = state.encryptor.encrypt(new_refresh)?;
     let mut combined_nonce = access_nonce_new;
@@ -123,7 +127,9 @@ async fn get_valid_access_token(
     let new_expires_at = Utc::now() + chrono::Duration::seconds(result.expires_in_secs as i64);
 
     let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
-    db::set_rls_context(&mut tx, org_id).await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, org_id)
+        .await
+        .map_err(AppError::internal)?;
 
     let locked = provider_token::find_for_user_locked(&mut tx, user_id, provider)
         .await?

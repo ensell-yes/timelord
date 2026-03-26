@@ -40,7 +40,8 @@ pub fn optimize(events: Vec<SolverEvent>, config: &SolverConfig) -> SolverResult
 
     for event in &movable {
         let duration_slots = (event.duration_minutes() / config.slot_minutes).max(1) as usize;
-        let valid_starts = compute_valid_starts(event, config, total_slots, duration_slots, &fixed_occupancy);
+        let valid_starts =
+            compute_valid_starts(event, config, total_slots, duration_slots, &fixed_occupancy);
 
         // Use continuous [0,1] variables instead of binary. The assignment +
         // capacity constraints form a TU matrix, so LP relaxation yields
@@ -389,8 +390,12 @@ mod tests {
         end_min: u32,
         movable: bool,
     ) -> SolverEvent {
-        let start = Utc.with_ymd_and_hms(2026, 3, 26, start_hour, start_min, 0).unwrap();
-        let end = Utc.with_ymd_and_hms(2026, 3, 26, end_hour, end_min, 0).unwrap();
+        let start = Utc
+            .with_ymd_and_hms(2026, 3, 26, start_hour, start_min, 0)
+            .unwrap();
+        let end = Utc
+            .with_ymd_and_hms(2026, 3, 26, end_hour, end_min, 0)
+            .unwrap();
         SolverEvent {
             id: Uuid::new_v4(),
             title: title.to_string(),

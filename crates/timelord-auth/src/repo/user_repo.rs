@@ -60,10 +60,7 @@ pub async fn upsert<'e>(
 }
 
 /// Find a local user by email for password login.
-pub async fn find_local_by_email(
-    pool: &PgPool,
-    email: &str,
-) -> Result<Option<User>, AppError> {
+pub async fn find_local_by_email(pool: &PgPool, email: &str) -> Result<Option<User>, AppError> {
     let user = sqlx::query_as!(
         User,
         "SELECT * FROM users WHERE provider = 'local' AND provider_sub = $1 AND password_hash IS NOT NULL",
@@ -119,12 +116,9 @@ pub async fn update_password(
 
 /// Check if a user is a system admin.
 pub async fn is_system_admin(pool: &PgPool, user_id: Uuid) -> Result<bool, AppError> {
-    let row = sqlx::query!(
-        "SELECT system_admin FROM users WHERE id = $1",
-        user_id
-    )
-    .fetch_optional(pool)
-    .await?;
+    let row = sqlx::query!("SELECT system_admin FROM users WHERE id = $1", user_id)
+        .fetch_optional(pool)
+        .await?;
     Ok(row.map(|r| r.system_admin).unwrap_or(false))
 }
 

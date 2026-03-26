@@ -7,8 +7,7 @@ use timelord_common::error::AppError;
 
 use super::{SyncResult, UpsertEvent};
 
-const GRAPH_CALENDAR_DELTA_URL: &str =
-    "https://graph.microsoft.com/v1.0/me/calendars";
+const GRAPH_CALENDAR_DELTA_URL: &str = "https://graph.microsoft.com/v1.0/me/calendars";
 
 // ---------------------------------------------------------------------------
 // Microsoft Graph API response types
@@ -92,9 +91,7 @@ pub async fn fetch_microsoft_events(
     calendar_id: &str,
     delta_link: Option<&str>,
 ) -> Result<SyncResult, AppError> {
-    let base_url = format!(
-        "{GRAPH_CALENDAR_DELTA_URL}/{calendar_id}/events/delta"
-    );
+    let base_url = format!("{GRAPH_CALENDAR_DELTA_URL}/{calendar_id}/events/delta");
 
     let mut all_events: Vec<UpsertEvent> = Vec::new();
     let mut next_url: Option<String> = delta_link.map(String::from);
@@ -316,14 +313,11 @@ fn parse_graph_datetime(dt: &GraphDateTimeZone) -> Result<DateTime<Utc>, AppErro
 
     // Try parsing as IANA timezone first, then fall back to Windows timezone mapping
     let tz = resolve_timezone(tz_name)?;
-    let local = naive
-        .and_local_timezone(tz)
-        .earliest()
-        .ok_or_else(|| {
-            AppError::internal(format!(
-                "Ambiguous or invalid local time: {raw} in {tz_name}"
-            ))
-        })?;
+    let local = naive.and_local_timezone(tz).earliest().ok_or_else(|| {
+        AppError::internal(format!(
+            "Ambiguous or invalid local time: {raw} in {tz_name}"
+        ))
+    })?;
 
     Ok(local.with_timezone(&Utc))
 }
@@ -444,9 +438,8 @@ fn resolve_timezone(name: &str) -> Result<Tz, AppError> {
         }
     };
 
-    iana.parse::<Tz>().map_err(|_| {
-        AppError::internal(format!("Failed to parse mapped IANA timezone: {iana}"))
-    })
+    iana.parse::<Tz>()
+        .map_err(|_| AppError::internal(format!("Failed to parse mapped IANA timezone: {iana}")))
 }
 
 fn normalise_microsoft_rsvp(response: &str) -> String {

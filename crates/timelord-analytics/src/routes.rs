@@ -33,7 +33,9 @@ pub async fn get_trends(
     let days = query.days.unwrap_or(30);
 
     let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
-    db::set_rls_context(&mut tx, claims.org).await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, claims.org)
+        .await
+        .map_err(AppError::internal)?;
 
     let trends = repo::get_trends(&mut *tx, claims.org, claims.sub, days).await?;
     tx.commit().await.map_err(AppError::internal)?;

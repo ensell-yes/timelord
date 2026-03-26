@@ -5,9 +5,7 @@ use crate::services::AppState;
 
 /// GET /setup/status — public, no auth required.
 /// Returns first-run detection info for installers/UIs.
-pub async fn status(
-    State(state): State<Arc<AppState>>,
-) -> Json<serde_json::Value> {
+pub async fn status(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
     let setup_complete = sqlx::query_scalar!(
         r#"SELECT COALESCE((SELECT value::text = 'true' FROM system_settings WHERE key = 'setup_complete'), false) AS "complete!""#
     )

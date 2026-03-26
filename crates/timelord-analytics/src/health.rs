@@ -28,22 +28,17 @@ pub async fn compute_health(
     let window_end = now;
 
     let mut tx = pool.begin().await.map_err(AppError::internal)?;
-    db::set_rls_context(&mut tx, org_id).await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, org_id)
+        .await
+        .map_err(AppError::internal)?;
 
-    let focus_minutes = repo::focus_minutes_in_window(
-        &mut *tx, org_id, user_id, window_start, window_end,
-    )
-    .await?;
+    let focus_minutes =
+        repo::focus_minutes_in_window(&mut *tx, org_id, user_id, window_start, window_end).await?;
 
-    let fragmentation = repo::fragmentation_score(
-        &mut *tx, org_id, user_id, window_start, window_end,
-    )
-    .await?;
+    let fragmentation =
+        repo::fragmentation_score(&mut *tx, org_id, user_id, window_start, window_end).await?;
 
-    let rsvp = repo::rsvp_ratio(
-        &mut *tx, org_id, user_id, window_start, window_end,
-    )
-    .await?;
+    let rsvp = repo::rsvp_ratio(&mut *tx, org_id, user_id, window_start, window_end).await?;
 
     let sync_fresh = repo::sync_freshness(&mut *tx, org_id, user_id).await?;
 
