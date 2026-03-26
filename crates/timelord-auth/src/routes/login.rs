@@ -23,7 +23,18 @@ pub async fn login(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let email = body.email.trim().to_lowercase();
 
-    // TODO: rate-limit login attempts via Redis (login_attempts:{email}, max 5/min)
+    // Rate-limit login attempts: max 5 per minute per email
+    {
+        use redis::AsyncCommands;
+        let rate_key = format!("login_attempts:{email}");
+        let mut redis = state.redis.clone();
+        let count: i64 = redis.get(&rate_key).await.unwrap_or(0);
+        if count >= 5 {
+            return Err(AppError::BadRequest("Too many login attempts. Try again in 1 minute.".into()));
+        }
+        let _: () = redis.incr(&rate_key, 1i64).await.unwrap_or_default();
+        let _: () = redis.expire(&rate_key, 60).await.unwrap_or_default();
+    }
 
     let user = user_repo::find_local_by_email(&state.pool, &email)
         .await?

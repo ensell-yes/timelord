@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO system_settings (key, value) VALUES ('setup_complete', 'true'::jsonb)\n        ON CONFLICT (key) DO UPDATE SET value = 'true'::jsonb, updated_at = now()\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "4e0f81ba9913ead3bcb08847eaa14370ac3c52d5b13e05f0fd6a4d8bbcdb28e8"
+}

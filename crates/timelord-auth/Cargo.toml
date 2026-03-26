@@ -5,9 +5,17 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lib]
+name = "timelord_auth"
+path = "src/lib.rs"
+
 [[bin]]
 name = "timelord-auth"
 path = "src/main.rs"
+
+[[bin]]
+name = "timelord-cli"
+path = "src/cli.rs"
 
 [dependencies]
 timelord-common.workspace = true

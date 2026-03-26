@@ -159,12 +159,20 @@ pub async fn create_org(
 
 // --- Org-scoped admin endpoints ---
 
-/// GET /admin/users — list members of the caller's active org.
+/// GET /admin/users — list members of the caller's active org (org admin only).
 pub async fn list_users(
     State(state): State<Arc<AppState>>,
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let claims = decode_jwt(&state, &auth)?;
+
+    // Require org owner/admin
+    let caller_role = org_repo::get_member_role(&state.pool, claims.org, claims.sub)
+        .await?
+        .ok_or(AppError::Forbidden)?;
+    if !matches!(caller_role, OrgRole::Owner | OrgRole::Admin) {
+        return Err(AppError::Forbidden);
+    }
 
     let members = org_repo::list_org_members(&state.pool, claims.org).await?;
     Ok(Json(serde_json::json!({ "members": members })))
@@ -222,4 +230,92 @@ pub async fn add_member(
         "user_id": member.user_id,
         "role": member.role.to_string(),
     })))
+}
+
+/// PUT /admin/users/:id/role — change a user's role within the caller's org.
+#[derive(serde::Deserialize)]
+pub struct ChangeRoleRequest {
+    pub role: String,
+}
+
+pub async fn change_role(
+    State(state): State<Arc<AppState>>,
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Path(user_id): Path<Uuid>,
+    Json(body): Json<ChangeRoleRequest>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let claims = decode_jwt(&state, &auth)?;
+
+    let caller_role = org_repo::get_member_role(&state.pool, claims.org, claims.sub)
+        .await?
+        .ok_or(AppError::Forbidden)?;
+    if !matches!(caller_role, OrgRole::Owner | OrgRole::Admin) {
+        return Err(AppError::Forbidden);
+    }
+
+    let role = match body.role.as_str() {
+        "owner" => OrgRole::Owner,
+        "admin" => OrgRole::Admin,
+        "member" => OrgRole::Member,
+        _ => return Err(AppError::BadRequest("role must be owner, admin, or member".into())),
+    };
+
+    let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, claims.org).await.map_err(AppError::internal)?;
+
+    let member = org_repo::add_member(&mut *tx, claims.org, user_id, role).await?;
+
+    insert_audit(
+        &mut *tx,
+        AuditEntry::new(claims.org, "admin_change_role", "org_member")
+            .user(claims.sub)
+            .entity(user_id)
+            .meta(serde_json::json!({ "new_role": body.role })),
+    )
+    .await;
+
+    tx.commit().await.map_err(AppError::internal)?;
+
+    Ok(Json(serde_json::json!({
+        "user_id": member.user_id,
+        "org_id": member.org_id,
+        "role": member.role.to_string(),
+    })))
+}
+
+/// DELETE /admin/users/:id — remove a user from the caller's org.
+pub async fn remove_user(
+    State(state): State<Arc<AppState>>,
+    TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
+    Path(user_id): Path<Uuid>,
+) -> Result<axum::http::StatusCode, AppError> {
+    let claims = decode_jwt(&state, &auth)?;
+
+    if user_id == claims.sub {
+        return Err(AppError::BadRequest("Cannot remove yourself".into()));
+    }
+
+    let caller_role = org_repo::get_member_role(&state.pool, claims.org, claims.sub)
+        .await?
+        .ok_or(AppError::Forbidden)?;
+    if !matches!(caller_role, OrgRole::Owner | OrgRole::Admin) {
+        return Err(AppError::Forbidden);
+    }
+
+    let mut tx = state.pool.begin().await.map_err(AppError::internal)?;
+    db::set_rls_context(&mut tx, claims.org).await.map_err(AppError::internal)?;
+
+    org_repo::remove_member(&mut *tx, claims.org, user_id).await?;
+
+    insert_audit(
+        &mut *tx,
+        AuditEntry::new(claims.org, "admin_remove_user", "org_member")
+            .user(claims.sub)
+            .entity(user_id),
+    )
+    .await;
+
+    tx.commit().await.map_err(AppError::internal)?;
+
+    Ok(axum::http::StatusCode::NO_CONTENT)
 }

@@ -40,6 +40,8 @@ pub async fn serve(state: Arc<AppState>) -> anyhow::Result<()> {
         .route("/setup/status", get(setup::status))
         // Admin API
         .route("/admin/users", post(admin::create_user).get(admin::list_users))
+        .route("/admin/users/:id/role", axum::routing::put(admin::change_role))
+        .route("/admin/users/:id", delete(admin::remove_user))
         .route("/admin/orgs", post(admin::create_org))
         .route("/admin/orgs/:id/members", post(admin::add_member))
         .layer(cors)

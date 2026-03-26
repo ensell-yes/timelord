@@ -113,6 +113,21 @@ pub async fn list_org_members(
         .collect())
 }
 
+pub async fn remove_member<'e>(
+    executor: impl sqlx::PgExecutor<'e>,
+    org_id: Uuid,
+    user_id: Uuid,
+) -> Result<(), AppError> {
+    sqlx::query!(
+        "DELETE FROM org_members WHERE org_id = $1 AND user_id = $2",
+        org_id,
+        user_id
+    )
+    .execute(executor)
+    .await?;
+    Ok(())
+}
+
 pub async fn list_user_orgs(
     pool: &PgPool,
     user_id: Uuid,
