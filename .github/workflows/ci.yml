@@ -92,6 +92,15 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      - name: Run migrations
+        env:
+          PGPASSWORD: test_password
+        run: |
+          for f in $(find crates -name '*.sql' -path '*/migrations/*' | sort); do
+            echo "Running $f"
+            psql -h localhost -U timelord -d timelord_test -f "$f"
+          done
+
       - name: Run integration tests
         env:
           DATABASE_URL: postgres://timelord:test_password@localhost:5432/timelord_test
