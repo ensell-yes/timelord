@@ -52,6 +52,16 @@
         "ordinal": 9,
         "name": "updated_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 10,
+        "name": "password_hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "system_admin",
+        "type_info": "Bool"
       }
     ],
     "parameters": {
@@ -70,6 +80,8 @@
       false,
       true,
       false,
+      false,
+      true,
       false
     ]
   },

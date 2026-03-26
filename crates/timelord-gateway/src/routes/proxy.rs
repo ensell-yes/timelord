@@ -20,7 +20,11 @@ pub async fn proxy_handler(
         .map(|q| format!("?{q}"))
         .unwrap_or_default();
 
-    let upstream_base = if path.starts_with("/auth/") || path.starts_with("/.well-known/") {
+    let upstream_base = if path.starts_with("/auth/")
+        || path.starts_with("/.well-known/")
+        || path.starts_with("/admin/")
+        || path.starts_with("/setup/")
+    {
         &state.config.auth_service_http_url
     } else {
         &state.config.calendar_service_http_url

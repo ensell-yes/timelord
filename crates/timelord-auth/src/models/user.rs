@@ -12,6 +12,8 @@ pub struct User {
     pub provider_sub: String,
     pub is_active: bool,
     pub last_active_org_id: Option<Uuid>,
+    pub password_hash: Option<String>,
+    pub system_admin: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

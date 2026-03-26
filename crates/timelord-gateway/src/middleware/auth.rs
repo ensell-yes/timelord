@@ -16,7 +16,9 @@ static PUBLIC_PATHS: &[&str] = &[
     "/healthz",
     "/auth/google",
     "/auth/microsoft",
+    "/auth/login",
     "/.well-known/jwks.json",
+    "/setup/status",
 ];
 
 fn is_public(path: &str) -> bool {

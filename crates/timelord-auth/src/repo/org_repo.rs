@@ -19,8 +19,8 @@ pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<Organization>,
     Ok(org)
 }
 
-pub async fn create(
-    pool: &PgPool,
+pub async fn create<'e>(
+    executor: impl sqlx::PgExecutor<'e>,
     name: &str,
     slug: &str,
     is_personal: bool,
@@ -36,13 +36,13 @@ pub async fn create(
         slug,
         is_personal
     )
-    .fetch_one(pool)
+    .fetch_one(executor)
     .await?;
     Ok(org)
 }
 
-pub async fn add_member(
-    pool: &PgPool,
+pub async fn add_member<'e>(
+    executor: impl sqlx::PgExecutor<'e>,
     org_id: Uuid,
     user_id: Uuid,
     role: OrgRole,
@@ -59,7 +59,7 @@ pub async fn add_member(
         user_id,
         role as OrgRole
     )
-    .fetch_one(pool)
+    .fetch_one(executor)
     .await?;
     Ok(member)
 }
@@ -77,6 +77,40 @@ pub async fn get_member_role(
     .fetch_optional(pool)
     .await?;
     Ok(row.map(|r| r.role))
+}
+
+/// List all members of an org with their user info.
+pub async fn list_org_members(
+    pool: &PgPool,
+    org_id: Uuid,
+) -> Result<Vec<serde_json::Value>, AppError> {
+    let rows = sqlx::query!(
+        r#"
+        SELECT u.id, u.email, u.display_name, u.provider, u.system_admin,
+               m.role AS "role: OrgRole"
+        FROM org_members m
+        JOIN users u ON u.id = m.user_id
+        WHERE m.org_id = $1
+        ORDER BY m.created_at ASC
+        "#,
+        org_id
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|r| {
+            serde_json::json!({
+                "id": r.id,
+                "email": r.email,
+                "display_name": r.display_name,
+                "provider": r.provider,
+                "system_admin": r.system_admin,
+                "role": r.role.to_string(),
+            })
+        })
+        .collect())
 }
 
 pub async fn list_user_orgs(

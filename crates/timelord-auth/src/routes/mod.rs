@@ -1,7 +1,10 @@
+pub mod admin;
 pub mod health;
+pub mod login;
 pub mod oauth_google;
 pub mod oauth_microsoft;
 pub mod session;
+pub mod setup;
 
 use axum::{routing::delete, routing::get, routing::post, Router};
 use std::sync::Arc;
@@ -31,6 +34,14 @@ pub async fn serve(state: Arc<AppState>) -> anyhow::Result<()> {
         .route("/auth/org/switch", post(session::switch_org))
         // JWKS
         .route("/.well-known/jwks.json", get(session::jwks))
+        // Local password login
+        .route("/auth/login", post(login::login))
+        // Setup status (public)
+        .route("/setup/status", get(setup::status))
+        // Admin API
+        .route("/admin/users", post(admin::create_user).get(admin::list_users))
+        .route("/admin/orgs", post(admin::create_org))
+        .route("/admin/orgs/:id/members", post(admin::add_member))
         .layer(cors)
         .with_state(state.clone());
 
