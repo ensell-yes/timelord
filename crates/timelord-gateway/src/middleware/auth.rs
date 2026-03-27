@@ -11,9 +11,9 @@ use timelord_common::{auth_claims::Claims, error::AppError};
 
 use crate::routes::GatewayState;
 
-/// Public paths that bypass JWT validation.
+/// Public path prefixes that bypass JWT validation.
+/// Note: do not include `"/"` here — `path.starts_with("/")` is true for every path.
 static PUBLIC_PATHS: &[&str] = &[
-    "/",
     "/healthz",
     "/auth/google",
     "/auth/microsoft",
@@ -23,7 +23,8 @@ static PUBLIC_PATHS: &[&str] = &[
 ];
 
 fn is_public(path: &str) -> bool {
-    PUBLIC_PATHS.iter().any(|p| path.starts_with(p))
+    path == "/"
+        || PUBLIC_PATHS.iter().any(|p| path.starts_with(p))
         || path.starts_with("/auth/google/callback")
         || path.starts_with("/auth/microsoft/callback")
 }
