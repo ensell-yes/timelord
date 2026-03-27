@@ -1,12 +1,226 @@
+# Production compose — uses pre-built GHCR images.
+# On the server, copy this file and create a .env with all required secrets.
+# Deploy workflow runs: docker compose pull && docker compose up -d
+
+x-common: &common
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
 services:
+  postgres:
+    <<: *common
+    image: postgres:16-alpine
+    ports:
+      - "127.0.0.1:5433:5432"
+    environment:
+      POSTGRES_USER: timelord
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: timelord
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U timelord"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    <<: *common
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  nats:
+    <<: *common
+    image: nats:2-alpine
+    ports:
+      - "127.0.0.1:4222:4222"
+    command: "--jetstream --store_dir /data"
+    volumes:
+      - natsdata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8222/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  auth:
+    <<: *common
+    image: ${IMAGE_PREFIX:-ghcr.io/ensell-yes/timelord}/auth:${IMAGE_TAG:-latest}
+    environment:
+      RUST_LOG: ${RUST_LOG:-info,timelord=debug}
+      DATABASE_URL: postgres://timelord:${POSTGRES_PASSWORD}@postgres:5432/timelord
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      NATS_URL: nats://nats:4222
+      AUTH_HTTP_PORT: "3001"
+      AUTH_GRPC_PORT: "50051"
+      JWT_PRIVATE_KEY_PEM: ${JWT_PRIVATE_KEY_PEM}
+      JWT_PUBLIC_KEY_PEM: ${JWT_PUBLIC_KEY_PEM}
+      JWT_KEY_ID: ${JWT_KEY_ID:-key-1}
+      JWT_EXPIRY_SECONDS: ${JWT_EXPIRY_SECONDS:-900}
+      REFRESH_EXPIRY_SECONDS: ${REFRESH_EXPIRY_SECONDS:-604800}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET}
+      MICROSOFT_REDIRECT_URI: ${MICROSOFT_REDIRECT_URI}
+      MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-common}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3001/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  calendar:
+    <<: *common
+    image: ${IMAGE_PREFIX:-ghcr.io/ensell-yes/timelord}/calendar:${IMAGE_TAG:-latest}
+    environment:
+      RUST_LOG: ${RUST_LOG:-info,timelord=debug}
+      DATABASE_URL: postgres://timelord:${POSTGRES_PASSWORD}@postgres:5432/timelord
+      NATS_URL: nats://nats:4222
+      CALENDAR_HTTP_PORT: "3002"
+      CALENDAR_GRPC_PORT: "50052"
+      AUTH_SERVICE_URL: http://auth:50051
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3002/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   gateway:
+    <<: *common
+    image: ${IMAGE_PREFIX:-ghcr.io/ensell-yes/timelord}/gateway:${IMAGE_TAG:-latest}
     ports:
       - "443:443"
     environment:
+      RUST_LOG: ${RUST_LOG:-info,timelord=debug}
       GATEWAY_PORT: "443"
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      AUTH_SERVICE_HTTP_URL: http://auth:3001
+      AUTH_SERVICE_GRPC_URL: http://auth:50051
+      CALENDAR_SERVICE_HTTP_URL: http://calendar:3002
+      JWT_PUBLIC_KEY_PEM: ${JWT_PUBLIC_KEY_PEM}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
       TLS_CERT_PATH: /etc/ssl/timelord/cert.pem
       TLS_KEY_PATH: /etc/ssl/timelord/key.pem
     volumes:
       - /etc/ssl/timelord:/etc/ssl/timelord:ro
+    depends_on:
+      auth:
+        condition: service_healthy
+      calendar:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -ksf https://localhost:443/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  sync:
+    <<: *common
+    image: ${IMAGE_PREFIX:-ghcr.io/ensell-yes/timelord}/sync:${IMAGE_TAG:-latest}
+    environment:
+      RUST_LOG: ${RUST_LOG:-info,timelord=debug}
+      DATABASE_URL: postgres://timelord:${POSTGRES_PASSWORD}@postgres:5432/timelord
+      NATS_URL: nats://nats:4222
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      SYNC_HTTP_PORT: "3003"
+      SYNC_INTERVAL_SECS: ${SYNC_INTERVAL_SECS:-300}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET}
+      MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-common}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+
+  solver:
+    <<: *common
+    image: ${IMAGE_PREFIX:-ghcr.io/ensell-yes/timelord}/solver:${IMAGE_TAG:-latest}
+    environment:
+      RUST_LOG: ${RUST_LOG:-info,timelord=debug}
+      DATABASE_URL: postgres://timelord:${POSTGRES_PASSWORD}@postgres:5432/timelord
+      NATS_URL: nats://nats:4222
+      SOLVER_HTTP_PORT: "3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+
+  analytics:
+    <<: *common
+    image: ${IMAGE_PREFIX:-ghcr.io/ensell-yes/timelord}/analytics:${IMAGE_TAG:-latest}
+    environment:
+      RUST_LOG: ${RUST_LOG:-info,timelord=debug}
+      DATABASE_URL: postgres://timelord:${POSTGRES_PASSWORD}@postgres:5432/timelord
+      NATS_URL: nats://nats:4222
+      ANALYTICS_HTTP_PORT: "3005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+
+  mcp:
+    <<: *common
+    image: ${IMAGE_PREFIX:-ghcr.io/ensell-yes/timelord}/mcp:${IMAGE_TAG:-latest}
+    environment:
+      RUST_LOG: ${RUST_LOG:-info,timelord=debug}
+      DATABASE_URL: postgres://timelord:${POSTGRES_PASSWORD}@postgres:5432/timelord
+      MCP_HTTP_PORT: "3006"
+      MCP_ORG_ID: ${MCP_ORG_ID}
+      MCP_USER_ID: ${MCP_USER_ID}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:
+  natsdata:
