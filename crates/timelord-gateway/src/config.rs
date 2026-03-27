@@ -9,6 +9,8 @@ pub struct Config {
     pub calendar_service_http_url: String,
     pub jwt_public_key_pem: String,
     pub cors_allowed_origins: Vec<String>,
+    pub tls_cert_path: Option<String>,
+    pub tls_key_path: Option<String>,
 }
 
 impl Config {
@@ -27,6 +29,8 @@ impl Config {
             .split(',')
             .map(|s| s.trim().to_string())
             .collect(),
+            tls_cert_path: std::env::var("TLS_CERT_PATH").ok(),
+            tls_key_path: std::env::var("TLS_KEY_PATH").ok(),
         })
     }
 }

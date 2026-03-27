@@ -1,0 +1,12 @@
+services:
+  gateway:
+    ports:
+      - "443:443"
+    environment:
+      GATEWAY_PORT: "443"
+      TLS_CERT_PATH: /etc/ssl/timelord/cert.pem
+      TLS_KEY_PATH: /etc/ssl/timelord/key.pem
+    volumes:
+      - /etc/ssl/timelord:/etc/ssl/timelord:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -ksf https://localhost:443/healthz || exit 1"]
