@@ -61,8 +61,8 @@ pub async fn serve(config: Config) -> anyhow::Result<()> {
     let addr = format!("0.0.0.0:{}", config.port);
 
     if let (Some(cert_path), Some(key_path)) = (&config.tls_cert_path, &config.tls_key_path) {
-        let tls_config = axum_server::tls_rustls::RustlsConfig::from_pem_file(cert_path, key_path)
-            .await?;
+        let tls_config =
+            axum_server::tls_rustls::RustlsConfig::from_pem_file(cert_path, key_path).await?;
         tracing::info!(addr = %addr, "gateway listening (TLS)");
         axum_server::bind_rustls(addr.parse()?, tls_config)
             .serve(app.into_make_service())
