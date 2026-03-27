@@ -23,6 +23,9 @@ pub struct GatewayState {
 }
 
 pub async fn serve(config: Config) -> anyhow::Result<()> {
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .map_err(|_| anyhow::anyhow!("Failed to install rustls crypto provider"))?;
     let public_pem = config.jwt_public_key_pem.replace("\\n", "\n");
     let decoding_key = DecodingKey::from_rsa_pem(public_pem.as_bytes())
         .map_err(|e| anyhow::anyhow!("Invalid JWT_PUBLIC_KEY_PEM: {e}"))?;
@@ -43,6 +46,7 @@ pub async fn serve(config: Config) -> anyhow::Result<()> {
         .allow_headers(Any);
 
     let app = Router::new()
+        .route("/", get(health::root))
         .route("/healthz", get(health::healthz))
         // Proxy all other traffic
         .route("/{*path}", any(proxy::proxy_handler))

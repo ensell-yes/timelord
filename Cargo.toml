@@ -27,6 +27,7 @@ tokio = { version = "1", features = ["full"] }
 axum = { version = "0.8", features = ["macros"] }
 axum-extra = { version = "0.10", features = ["typed-header"] }
 axum-server = { version = "0.7", features = ["tls-rustls"] }
+rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs"] }
 tower = "0.5"
 tower-http = { version = "0.6", features = ["cors", "trace", "request-id", "propagate-header"] }
 

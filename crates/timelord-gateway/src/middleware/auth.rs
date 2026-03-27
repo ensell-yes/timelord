@@ -13,6 +13,7 @@ use crate::routes::GatewayState;
 
 /// Public paths that bypass JWT validation.
 static PUBLIC_PATHS: &[&str] = &[
+    "/",
     "/healthz",
     "/auth/google",
     "/auth/microsoft",
