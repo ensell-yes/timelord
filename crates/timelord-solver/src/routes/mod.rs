@@ -24,7 +24,7 @@ pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/healthz", get(health::healthz))
         .route("/api/v1/optimize", post(optimize::optimize))
-        .route("/api/v1/optimize/:run_id", get(apply::get_run))
-        .route("/api/v1/optimize/:run_id/apply", post(apply::apply))
+        .route("/api/v1/optimize/{run_id}", get(apply::get_run))
+        .route("/api/v1/optimize/{run_id}/apply", post(apply::apply))
         .with_state(state)
 }

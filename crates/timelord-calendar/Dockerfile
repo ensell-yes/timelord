@@ -1,6 +1,7 @@
 FROM rust:1.82-bookworm AS builder
 
 WORKDIR /build
+ENV SQLX_OFFLINE=true
 RUN apt-get update && apt-get install -y protobuf-compiler && rm -rf /var/lib/apt/lists/*
 
 COPY Cargo.toml Cargo.lock ./
@@ -31,8 +32,9 @@ RUN cargo build --release --bin timelord-calendar
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y ca-certificates curl && rm -rf /var/lib/apt/lists/*
 
+WORKDIR /app
 COPY --from=builder /build/target/release/timelord-calendar /usr/local/bin/timelord-calendar
-COPY --from=builder /build/crates/timelord-calendar/migrations /migrations
+COPY --from=builder /build/crates/timelord-calendar/migrations /app/crates/timelord-calendar/migrations
 
 EXPOSE 3002 50052
 USER 1000:1000

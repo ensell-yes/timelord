@@ -33,7 +33,7 @@ services:
     ports:
       - "4222:4222"
       - "8222:8222"
-    command: "--jetstream --store_dir /data"
+    command: "--jetstream --store_dir /data --http_port 8222"
     volumes:
       - natsdata:/data
     healthcheck:
@@ -98,6 +98,11 @@ services:
       CALENDAR_HTTP_PORT: "3002"
       CALENDAR_GRPC_PORT: "50052"
       AUTH_SERVICE_URL: http://auth:50051
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET}
     depends_on:
       postgres:
         condition: service_healthy

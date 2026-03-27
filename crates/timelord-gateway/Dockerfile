@@ -1,6 +1,7 @@
 FROM rust:1.82-bookworm AS builder
 
 WORKDIR /build
+ENV SQLX_OFFLINE=true
 RUN apt-get update && apt-get install -y protobuf-compiler && rm -rf /var/lib/apt/lists/*
 
 COPY Cargo.toml Cargo.lock ./

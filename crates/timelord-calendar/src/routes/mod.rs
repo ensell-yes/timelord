@@ -25,15 +25,15 @@ pub async fn serve(state: Arc<AppState>) -> anyhow::Result<()> {
             get(calendars::list).post(calendars::create),
         )
         .route(
-            "/api/v1/calendars/:id",
+            "/api/v1/calendars/{id}",
             get(calendars::get_one).delete(calendars::delete_one),
         )
         .route(
-            "/api/v1/calendars/:cal_id/events",
+            "/api/v1/calendars/{cal_id}/events",
             get(events::list).post(events::create),
         )
         .route(
-            "/api/v1/events/:id",
+            "/api/v1/events/{id}",
             get(events::get_one).delete(events::delete_one),
         )
         // Bulk import calendars from provider listing

@@ -44,12 +44,12 @@ pub async fn serve(state: Arc<AppState>) -> anyhow::Result<()> {
             post(admin::create_user).get(admin::list_users),
         )
         .route(
-            "/admin/users/:id/role",
+            "/admin/users/{id}/role",
             axum::routing::put(admin::change_role),
         )
-        .route("/admin/users/:id", delete(admin::remove_user))
+        .route("/admin/users/{id}", delete(admin::remove_user))
         .route("/admin/orgs", post(admin::create_org))
-        .route("/admin/orgs/:id/members", post(admin::add_member))
+        .route("/admin/orgs/{id}/members", post(admin::add_member))
         .layer(cors)
         .with_state(state.clone());
 

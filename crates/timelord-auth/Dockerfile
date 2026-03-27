@@ -1,6 +1,7 @@
 FROM rust:1.82-bookworm AS builder
 
 WORKDIR /build
+ENV SQLX_OFFLINE=true
 
 # Install protoc for tonic-build
 RUN apt-get update && apt-get install -y protobuf-compiler && rm -rf /var/lib/apt/lists/*
@@ -37,8 +38,9 @@ RUN cargo build --release --bin timelord-auth
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y ca-certificates curl && rm -rf /var/lib/apt/lists/*
 
+WORKDIR /app
 COPY --from=builder /build/target/release/timelord-auth /usr/local/bin/timelord-auth
-COPY --from=builder /build/crates/timelord-auth/migrations /migrations
+COPY --from=builder /build/crates/timelord-auth/migrations /app/crates/timelord-auth/migrations
 
 EXPOSE 3001 50051
 USER 1000:1000
