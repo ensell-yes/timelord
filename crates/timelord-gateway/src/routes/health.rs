@@ -19,10 +19,7 @@ pub async fn favicon() -> StatusCode {
     StatusCode::NO_CONTENT
 }
 
-pub async fn root(
-    State(state): State<Arc<GatewayState>>,
-    headers: header::HeaderMap,
-) -> Response {
+pub async fn root(State(state): State<Arc<GatewayState>>, headers: header::HeaderMap) -> Response {
     let accept = headers
         .get(header::ACCEPT)
         .and_then(|v| v.to_str().ok())

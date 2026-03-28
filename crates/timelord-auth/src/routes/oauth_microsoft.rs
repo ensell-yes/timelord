@@ -155,7 +155,8 @@ pub async fn callback(
         urlencoding::encode(&user.email),
         urlencoding::encode(&user.display_name),
     );
-    let redirect_url = format!("{}/#{}",
+    let redirect_url = format!(
+        "{}/#{}",
         state.config.frontend_url.trim_end_matches('/'),
         fragment,
     );
