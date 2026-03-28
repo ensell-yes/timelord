@@ -14,7 +14,7 @@ services:
   postgres:
     <<: *common
     image: postgres:16-alpine
-    ports:
+    ports: !override
       - "127.0.0.1:5433:5432"
     environment:
       POSTGRES_USER: timelord
@@ -31,7 +31,7 @@ services:
   redis:
     <<: *common
     image: redis:7-alpine
-    ports:
+    ports: !override
       - "127.0.0.1:6379:6379"
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     volumes:
@@ -45,9 +45,9 @@ services:
   nats:
     <<: *common
     image: nats:2-alpine
-    ports:
+    ports: !override
       - "127.0.0.1:4222:4222"
-    command: "--jetstream --store_dir /data"
+    command: "--jetstream --store_dir /data -m 8222"
     volumes:
       - natsdata:/data
     healthcheck:
