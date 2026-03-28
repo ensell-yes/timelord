@@ -24,6 +24,8 @@ pub struct Config {
     pub microsoft_client_secret: String,
     pub microsoft_redirect_uri: String,
     pub microsoft_tenant_id: String,
+    // Frontend
+    pub frontend_url: String,
     // CORS
     pub cors_allowed_origins: Vec<String>,
 }
@@ -55,6 +57,7 @@ impl Config {
                 "http://localhost:8080/auth/microsoft/callback",
             ),
             microsoft_tenant_id: env_or("MICROSOFT_TENANT_ID", "common"),
+            frontend_url: env_or("FRONTEND_URL", "http://localhost:8080"),
             cors_allowed_origins: env_or(
                 "CORS_ALLOWED_ORIGINS",
                 "http://localhost:3000,http://localhost:5173",

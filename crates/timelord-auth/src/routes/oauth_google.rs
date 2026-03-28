@@ -1,7 +1,6 @@
 use axum::{
     extract::{Query, State},
     response::{IntoResponse, Redirect},
-    Json,
 };
 use oauth2::{PkceCodeVerifier, TokenResponse};
 use redis::AsyncCommands;
@@ -55,7 +54,7 @@ pub async fn start(
 pub async fn callback(
     State(state): State<Arc<AppState>>,
     Query(params): Query<CallbackQuery>,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<impl IntoResponse, AppError> {
     // Retrieve and consume PKCE verifier from Redis
     let verifier_key = format!("pkce:google:{}", params.state);
     let mut redis = state.redis.clone();
@@ -134,6 +133,18 @@ pub async fn callback(
     let (_session, tokens) =
         session_svc::create_session(&state.pool, &state.jwt, user.id, org_id, &role, None).await?;
 
+    // Auto-promote first user to system admin
+    let has_admin = sqlx::query_scalar!(
+        r#"SELECT EXISTS(SELECT 1 FROM users WHERE system_admin = true) AS "exists!""#
+    )
+    .fetch_one(&state.pool)
+    .await
+    .unwrap_or(false);
+
+    if !has_admin {
+        user_repo::promote_to_system_admin(&state.pool, user.id).await?;
+    }
+
     insert_audit(
         &state.pool,
         AuditEntry::new(org_id, "login", "user")
@@ -142,17 +153,21 @@ pub async fn callback(
     )
     .await;
 
-    Ok(Json(serde_json::json!({
-        "access_token": tokens.access_token,
-        "refresh_token": tokens.refresh_token,
-        "expires_at": tokens.expires_at,
-        "token_type": tokens.token_type,
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "display_name": user.display_name,
-        }
-    })))
+    // Redirect to frontend with tokens in URL fragment
+    let fragment = format!(
+        "access_token={}&refresh_token={}&expires_at={}&user_id={}&email={}&display_name={}",
+        urlencoding::encode(&tokens.access_token),
+        urlencoding::encode(&tokens.refresh_token),
+        urlencoding::encode(&tokens.expires_at.to_rfc3339()),
+        user.id,
+        urlencoding::encode(&user.email),
+        urlencoding::encode(&user.display_name),
+    );
+    let redirect_url = format!("{}/#{}",
+        state.config.frontend_url.trim_end_matches('/'),
+        fragment,
+    );
+    Ok(Redirect::temporary(&redirect_url))
 }
 
 async fn ensure_personal_org(

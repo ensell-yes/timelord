@@ -15,6 +15,7 @@ use crate::routes::GatewayState;
 /// Note: do not include `"/"` here — `path.starts_with("/")` is true for every path.
 static PUBLIC_PATHS: &[&str] = &[
     "/healthz",
+    "/favicon.ico",
     "/auth/google",
     "/auth/microsoft",
     "/auth/login",

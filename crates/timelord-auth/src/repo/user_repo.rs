@@ -122,6 +122,26 @@ pub async fn is_system_admin(pool: &PgPool, user_id: Uuid) -> Result<bool, AppEr
     Ok(row.map(|r| r.system_admin).unwrap_or(false))
 }
 
+/// Promote user to system admin and mark setup as complete.
+pub async fn promote_to_system_admin(pool: &PgPool, user_id: Uuid) -> Result<(), AppError> {
+    let mut tx = pool.begin().await?;
+
+    sqlx::query("UPDATE users SET system_admin = true, updated_at = now() WHERE id = $1")
+        .bind(user_id)
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query(
+        "INSERT INTO system_settings (key, value) VALUES ('setup_complete', 'true'::jsonb) \
+         ON CONFLICT (key) DO UPDATE SET value = 'true'::jsonb, updated_at = now()",
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+    Ok(())
+}
+
 pub async fn update_last_active_org<'e>(
     executor: impl sqlx::PgExecutor<'e>,
     user_id: Uuid,

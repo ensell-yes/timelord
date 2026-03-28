@@ -48,6 +48,7 @@ pub async fn serve(config: Config) -> anyhow::Result<()> {
     let app = Router::new()
         .route("/", get(health::root))
         .route("/healthz", get(health::healthz))
+        .route("/favicon.ico", get(health::favicon))
         // Proxy all other traffic
         .route("/{*path}", any(proxy::proxy_handler))
         .layer(middleware::from_fn_with_state(

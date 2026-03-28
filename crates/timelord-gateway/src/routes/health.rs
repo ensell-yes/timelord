@@ -1,14 +1,41 @@
-use axum::{extract::State, Json};
+use axum::{
+    extract::State,
+    http::{header, StatusCode},
+    response::{Html, IntoResponse, Response},
+    Json,
+};
 use serde_json::{json, Value};
 use std::sync::Arc;
 
 use crate::routes::GatewayState;
 
+static ONBOARDING_HTML: &str = include_str!("../../static/onboarding.html");
+
 pub async fn healthz() -> Json<Value> {
     Json(json!({ "status": "ok", "service": "timelord-gateway" }))
 }
 
-pub async fn root(State(state): State<Arc<GatewayState>>) -> Json<Value> {
+pub async fn favicon() -> StatusCode {
+    StatusCode::NO_CONTENT
+}
+
+pub async fn root(
+    State(state): State<Arc<GatewayState>>,
+    headers: header::HeaderMap,
+) -> Response {
+    let accept = headers
+        .get(header::ACCEPT)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+
+    if accept.contains("text/html") {
+        return Html(ONBOARDING_HTML).into_response();
+    }
+
+    root_json(state).await.into_response()
+}
+
+async fn root_json(state: Arc<GatewayState>) -> Json<Value> {
     let setup_status = match state
         .http_client
         .get(format!(
