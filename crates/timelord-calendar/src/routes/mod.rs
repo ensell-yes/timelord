@@ -4,6 +4,7 @@ pub mod health;
 pub mod provider;
 
 use axum::{
+    middleware,
     routing::{get, post},
     Router,
 };
@@ -43,6 +44,7 @@ pub async fn serve(state: Arc<AppState>) -> anyhow::Result<()> {
             "/api/v1/provider/calendars",
             get(provider::list_provider_calendars),
         )
+        .layer(middleware::from_fn(crate::middleware::claims_from_headers))
         .layer(cors)
         .with_state(state.clone());
 

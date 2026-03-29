@@ -46,6 +46,15 @@ pub async fn proxy_handler(
         }
     }
 
+    // Forward validated claims as trusted headers
+    if let Some(claims) = req.extensions().get::<timelord_common::auth_claims::Claims>() {
+        upstream_req = upstream_req
+            .header("X-User-Id", claims.sub.to_string())
+            .header("X-Org-Id", claims.org.to_string())
+            .header("X-Role", &claims.role)
+            .header("X-Jti", claims.jti.to_string());
+    }
+
     // Forward body
     let body_bytes = axum::body::to_bytes(req.into_body(), usize::MAX)
         .await

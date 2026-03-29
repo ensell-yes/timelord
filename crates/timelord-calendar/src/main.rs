@@ -1,5 +1,6 @@
 mod config;
 mod grpc;
+mod middleware;
 mod models;
 mod repo;
 mod routes;
