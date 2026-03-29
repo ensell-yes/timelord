@@ -321,6 +321,36 @@
     }));
   }
 
+  async function refreshToken() {
+    const rt = localStorage.getItem(REFRESH_KEY);
+    if (!rt) return null;
+    try {
+      const resp = await fetch('/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: rt }),
+      });
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      localStorage.setItem(TOKEN_KEY, data.access_token);
+      if (data.refresh_token) localStorage.setItem(REFRESH_KEY, data.refresh_token);
+      return data.access_token;
+    } catch { return null; }
+  }
+
+  async function authedFetch(url, opts = {}) {
+    let token = getToken();
+    opts.headers = { ...opts.headers, 'Authorization': 'Bearer ' + token };
+    let resp = await fetch(url, opts);
+    if (resp.status === 401) {
+      token = await refreshToken();
+      if (!token) { showError('Session expired — please sign in again.'); return resp; }
+      opts.headers['Authorization'] = 'Bearer ' + token;
+      resp = await fetch(url, opts);
+    }
+    return resp;
+  }
+
   function getToken() { return localStorage.getItem(TOKEN_KEY); }
   function getUser() {
     try { return JSON.parse(localStorage.getItem(USER_KEY)); }
@@ -357,12 +387,9 @@
     btn.innerHTML = '<span class="spinner"></span> Syncing...';
 
     try {
-      const resp = await fetch('/api/v1/sync', {
+      const resp = await authedFetch('/api/v1/sync', {
         method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + getToken(),
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
       });
 
       if (resp.ok || resp.status === 404) {
@@ -382,12 +409,9 @@
     }
   }
   async function viewCalendars() {
-    const token = getToken();
-    if (!token) { showError('Not authenticated'); return; }
+    if (!getToken()) { showError('Not authenticated'); return; }
     try {
-      const resp = await fetch('/api/v1/calendars', {
-        headers: { 'Authorization': 'Bearer ' + token },
-      });
+      const resp = await authedFetch('/api/v1/calendars');
       const data = await resp.json();
       const el = document.getElementById('calendars-output');
       el.style.display = 'block';

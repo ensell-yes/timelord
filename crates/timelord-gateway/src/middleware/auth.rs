@@ -19,6 +19,7 @@ static PUBLIC_PATHS: &[&str] = &[
     "/auth/google",
     "/auth/microsoft",
     "/auth/login",
+    "/auth/refresh",
     "/.well-known/jwks.json",
     "/setup/status",
 ];
