@@ -279,7 +279,8 @@
     <h2>You're all set</h2>
     <p id="success-msg">Timelord is configured and ready to go.</p>
     <div id="user-info" class="user-info" style="display:none"></div>
-    <a href="/api/v1/calendars" class="btn btn-outline">View calendars</a>
+    <button class="btn btn-outline" onclick="viewCalendars()">View calendars</button>
+    <pre id="calendars-output" style="display:none;text-align:left;background:#0b0f1a;border-radius:8px;padding:1rem;margin-top:1rem;font-size:0.8rem;color:#94a3b8;overflow-x:auto;max-height:300px"></pre>
   </div>
 
   <div class="footer">
@@ -380,8 +381,25 @@
       showError('Could not reach sync service. You can skip this step for now.');
     }
   }
+  async function viewCalendars() {
+    const token = getToken();
+    if (!token) { showError('Not authenticated'); return; }
+    try {
+      const resp = await fetch('/api/v1/calendars', {
+        headers: { 'Authorization': 'Bearer ' + token },
+      });
+      const data = await resp.json();
+      const el = document.getElementById('calendars-output');
+      el.style.display = 'block';
+      el.textContent = JSON.stringify(data, null, 2);
+    } catch (e) {
+      showError('Failed to fetch calendars: ' + e.message);
+    }
+  }
+
   // Expose to onclick
   window.triggerSync = triggerSync;
+  window.viewCalendars = viewCalendars;
 
   function renderSuccess() {
     document.getElementById('onboarding').style.display = 'none';

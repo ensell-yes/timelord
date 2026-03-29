@@ -79,6 +79,7 @@ services:
       MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET}
       MICROSOFT_REDIRECT_URI: ${MICROSOFT_REDIRECT_URI}
       MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-common}
+      FRONTEND_URL: ${FRONTEND_URL:-https://localhost:8080}
     depends_on:
       postgres:
         condition: service_healthy
