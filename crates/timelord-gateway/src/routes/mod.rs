@@ -35,7 +35,9 @@ pub async fn serve(config: Config) -> anyhow::Result<()> {
 
     let state = Arc::new(GatewayState {
         config: Arc::new(config.clone()),
-        http_client: reqwest::Client::new(),
+        http_client: reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()?,
         redis,
         decoding_key: Arc::new(decoding_key),
     });
